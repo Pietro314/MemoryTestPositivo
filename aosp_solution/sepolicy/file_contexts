@@ -1,0 +1,5 @@
+# Adicione estas linhas ao file_contexts do seu device (sepolicy/vendor/file_contexts)
+
+/vendor/bin/memtest_daemon           u:object_r:memtest_daemon_exec:s0
+/vendor/etc/factory(/.*)?           u:object_r:vendor_configs_file:s0
+/dev/socket/memtest_daemon          u:object_r:memtest_daemon_socket:s0

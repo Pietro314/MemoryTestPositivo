@@ -1,0 +1,6 @@
+# Permite que o APK (untrusted_app) conecte ao socket do daemon
+# Adicione ao sepolicy do device
+
+# O APK conecta via LocalSocket("memtest_daemon")
+allow untrusted_app memtest_daemon_socket:sock_file { write };
+allow untrusted_app memtest_daemon:unix_stream_socket connectto;

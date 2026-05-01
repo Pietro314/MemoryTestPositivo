@@ -1,0 +1,56 @@
+# SELinux policy para o memtest_daemon
+# Coloque em: device/<vendor>/<product>/sepolicy/vendor/memtest_daemon.te
+# ou em: vendor/<vendor>/sepolicy/vendor/memtest_daemon.te
+
+# Define o domínio do daemon
+type memtest_daemon, domain;
+type memtest_daemon_exec, exec_type, vendor_file_type, file_type;
+
+# Permite que o init inicie o daemon
+init_daemon_domain(memtest_daemon);
+
+# Daemon roda como root — permitir capacidades necessárias
+allow memtest_daemon self:capability {
+    dac_override        # lê arquivos de qualquer UID
+    dac_read_search     # abre diretórios de qualquer UID
+    sys_rawio           # blockdev
+    sys_admin           # drop_caches, mount info
+    net_admin           # (se necessário)
+    setuid              # pode mudar UID
+    setgid
+};
+
+# Permitir acesso ao socket Unix
+type memtest_daemon_socket, file_type;
+allow memtest_daemon memtest_daemon_socket:sock_file { create unlink };
+allow memtest_daemon self:unix_stream_socket { create bind listen accept read write };
+
+# Scripts em /vendor/etc/factory
+allow memtest_daemon vendor_configs_file:dir { read open search };
+allow memtest_daemon vendor_configs_file:file { read open getattr execute };
+
+# Fork + exec shell para rodar os scripts
+allow memtest_daemon shell_exec:file { read open getattr execute };
+allow memtest_daemon shell_exec:file execute_no_trans;
+
+# Acesso ao /proc/meminfo, /sys (UFS/MMC health, etc.)
+allow memtest_daemon proc_meminfo:file { read open };
+allow memtest_daemon sysfs:dir { read open search };
+allow memtest_daemon sysfs:file { read open getattr };
+allow memtest_daemon sysfs_block:dir { read open search };
+allow memtest_daemon sysfs_block:file { read open getattr };
+
+# /proc/sys/vm/drop_caches
+allow memtest_daemon proc_drop_caches:file { write open };
+
+# dmesg
+allow memtest_daemon self:capability2 syslog;
+allow memtest_daemon kernel:system syslog_read;
+
+# /data/data/com.factory.memorytest (workdir dos scripts)
+allow memtest_daemon app_data_file:dir { create write add_name read open search };
+allow memtest_daemon app_data_file:file { create write open read getattr unlink };
+
+# getprop
+get_prop(memtest_daemon, default_prop);
+get_prop(memtest_daemon, vendor_default_prop);

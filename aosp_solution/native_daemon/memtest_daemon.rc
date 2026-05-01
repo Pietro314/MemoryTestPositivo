@@ -1,0 +1,17 @@
+# init.rc para o daemon de factory test
+# Coloque este arquivo junto com Android.bp (será referenciado por init_rc)
+# Ou adicione manualmente no arquivo rc do seu device
+
+service memtest_daemon /vendor/bin/memtest_daemon
+    class late_start
+    user root
+    group root shell
+    socket memtest_daemon stream 0666 root system
+    seclabel u:r:memtest_daemon:s0
+    disabled
+
+# Inicia o daemon automaticamente em builds userdebug/eng
+on property:ro.debuggable=1
+    start memtest_daemon
+
+# Ou dispare manualmente via: setprop ctl.start memtest_daemon

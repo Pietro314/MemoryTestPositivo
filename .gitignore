@@ -1,0 +1,42 @@
+# macOS
+.DS_Store
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Gradle
+.gradle/
+build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Android build outputs
+*.apk
+*.aab
+*.ap_
+*.aar
+*.dex
+*.class
+
+# Logs and temp
+*.log
+*.tmp
+*.swp
+*~
+
+# Keystore — nunca comitar
+*.jks
+*.keystore
+
+# Native daemon build artifacts
+aosp_solution/native_daemon/*.o
+aosp_solution/native_daemon/memtest_daemon
+aosp_solution/native_daemon/build/
+
+# VS Code
+.vscode/

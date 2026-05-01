@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Memory Test</string>
+
+    <!-- Device list -->
+    <string name="title_device_list">Devices</string>
+    <string name="empty_device_list_title">Nenhum device cadastrado</string>
+    <string name="empty_device_list_subtitle">Toque no botão + para cadastrar o primeiro modelo de smartphone.</string>
+    <string name="action_add_device">Cadastrar device</string>
+    <string name="action_history">Histórico</string>
+
+    <!-- Device edit -->
+    <string name="title_new_device">Novo device</string>
+    <string name="title_edit_device">Editar device</string>
+    <string name="section_identification">Identificação</string>
+    <string name="section_hardware">Hardware esperado</string>
+    <string name="section_storage_thresholds">Limiares de Storage</string>
+    <string name="section_quick_test">Teste padrão (rápido)</string>
+    <string name="section_deep_test">Diagnóstico profundo de RAM</string>
+
+    <string name="field_name">Nome do device</string>
+    <string name="field_manufacturer">Fabricante</string>
+    <string name="field_model_code">Código do modelo (opcional)</string>
+    <string name="field_notes">Notas (opcional)</string>
+
+    <string name="field_ram">RAM (GB)</string>
+    <string name="field_storage">Storage (GB)</string>
+    <string name="field_storage_class">Classe de storage</string>
+
+    <string name="field_min_write">Velocidade mínima de escrita (MB/s)</string>
+    <string name="field_min_read">Velocidade mínima de leitura (MB/s)</string>
+    <string name="field_storage_test_size">Tamanho do teste de I/O (MB)</string>
+
+    <string name="field_quick_percent">% da RAM disponível</string>
+    <string name="field_quick_max">Máximo testado (MB)</string>
+    <string name="field_quick_min">Mínimo testado (MB)</string>
+    <string name="field_quick_loops">Loops do memtester</string>
+    <string name="field_quick_timeout">Timeout (segundos)</string>
+
+    <string name="field_deep_percent">% da RAM disponível</string>
+    <string name="field_deep_max">Máximo testado (MB)</string>
+    <string name="field_deep_loops">Loops do memtester</string>
+    <string name="field_deep_timeout">Timeout (segundos)</string>
+    <string name="field_deep_min">Mínimo testado (MB)</string>
+
+    <string name="hint_select_ram_storage">Selecione a quantidade de RAM e a classe de Storage para preencher os parâmetros automaticamente.</string>
+    <string name="hint_select_storage">Selecione a classe de Storage para preencher os limiares de I/O.</string>
+    <string name="hint_smart_default_one">💡 %1$s tem a mesma RAM. Aplicar valores dele?</string>
+    <string name="hint_smart_default_many">💡 %1$d devices têm a mesma RAM. Aplicar valores de um deles?</string>
+    <string name="action_apply">Aplicar</string>
+    <string name="action_ignore">Ignorar</string>
+    <string name="action_save">Salvar</string>
+    <string name="action_cancel">Cancelar</string>
+    <string name="action_delete">Excluir</string>
+    <string name="action_duplicate">Duplicar</string>
+    <string name="action_edit">Editar</string>
+
+    <string name="dialog_choose_base">Escolher device como base</string>
+    <string name="dialog_delete_title">Excluir device?</string>
+    <string name="dialog_delete_message">O histórico de testes deste device será preservado, mas o cadastro será removido.</string>
+
+    <!-- Device detail -->
+    <string name="action_run_factory">Iniciar teste de fábrica</string>
+    <string name="action_run_deep">Iniciar diagnóstico profundo</string>
+    <string name="action_view_history">Ver histórico deste device</string>
+
+    <!-- Test run -->
+    <string name="title_running">Executando…</string>
+    <string name="tab_status">Status</string>
+    <string name="tab_log">Log</string>
+    <string name="action_abort">Abortar</string>
+    <string name="action_share_report">Compartilhar relatório</string>
+    <string name="action_save_report">Salvar relatório</string>
+    <string name="action_back">Voltar</string>
+    <string name="status_pass">PASS</string>
+    <string name="status_fail">FAIL</string>
+    <string name="status_running">RUNNING</string>
+    <string name="status_aborted">ABORTED</string>
+
+    <!-- Validation -->
+    <string name="error_required">Campo obrigatório</string>
+    <string name="error_must_be_positive">Deve ser maior que zero</string>
+    <string name="error_percent_range">Use um valor entre 1 e 100</string>
+</resources>

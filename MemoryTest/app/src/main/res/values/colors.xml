@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material 3 base palette (factory test, dark-leaning) -->
+    <color name="md_primary">#4F8AFF</color>
+    <color name="md_on_primary">#FFFFFF</color>
+    <color name="md_primary_container">#1A2C52</color>
+    <color name="md_on_primary_container">#D7E4FF</color>
+
+    <color name="md_secondary">#5B6779</color>
+    <color name="md_on_secondary">#FFFFFF</color>
+    <color name="md_secondary_container">#283142</color>
+    <color name="md_on_secondary_container">#D8DFEF</color>
+
+    <color name="md_background">#10141B</color>
+    <color name="md_on_background">#E2E5EB</color>
+    <color name="md_surface">#161B25</color>
+    <color name="md_on_surface">#E2E5EB</color>
+    <color name="md_surface_variant">#252B36</color>
+    <color name="md_on_surface_variant">#C2C7D2</color>
+    <color name="md_outline">#3A4051</color>
+    <color name="md_surface_container">#1B2230</color>
+    <color name="md_surface_container_high">#202836</color>
+
+    <!-- Status semantico -->
+    <color name="status_pending">#5B6779</color>
+    <color name="status_running">#FFB300</color>
+    <color name="status_pass">#34C759</color>
+    <color name="status_fail">#FF453A</color>
+    <color name="status_warn">#FF9F0A</color>
+    <color name="status_skip">#7C8595</color>
+    <color name="status_idle">#5B6779</color>
+
+    <!-- Log monoespacado -->
+    <color name="log_bg">#0B0F15</color>
+    <color name="log_fg">#9DE39A</color>
+    <color name="log_fg_warn">#FFD060</color>
+    <color name="log_fg_err">#FF7B70</color>
+</resources>

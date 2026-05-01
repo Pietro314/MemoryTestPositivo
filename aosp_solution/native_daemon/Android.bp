@@ -1,0 +1,35 @@
+// Coloque este arquivo em: device/<vendor>/<product>/memtest_daemon/Android.bp
+// ou em: vendor/<vendor>/factory/memtest_daemon/Android.bp
+
+cc_binary {
+    name: "memtest_daemon",
+    srcs: ["memtest_daemon.c"],
+    vendor: true,                    // vai para /vendor/bin/
+    init_rc: ["memtest_daemon.rc"],
+    compile_multilib: "first",
+    stl: "none",
+    shared_libs: [],
+    static_libs: [],
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-O2",
+    ],
+}
+
+// Instala os scripts de teste em /vendor/etc/factory/
+prebuilt_etc {
+    name: "full_memtest_sh",
+    src: "scripts/full_memtest.sh",
+    sub_dir: "factory",
+    vendor: true,
+    filename_from_src: true,
+}
+
+prebuilt_etc {
+    name: "ram_diagnostic_deep_verbose_root_exec_sh",
+    src: "scripts/ram_diagnostic_deep_verbose_root_exec.sh",
+    sub_dir: "factory",
+    vendor: true,
+    filename_from_src: true,
+}

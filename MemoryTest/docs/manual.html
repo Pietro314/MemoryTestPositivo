@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MemoryTest — Manual de Uso para Fábrica e QA</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --bg-card: #ffffff;
+    --bg-code: #0f172a;
+    --bg-soft: #eef2f7;
+    --border: #d8dee6;
+    --border-strong: #9aa5b1;
+    --text: #1f2937;
+    --text-muted: #5b6776;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --warn: #b45309;
+    --warn-soft: #fef3c7;
+    --good: #15803d;
+    --good-soft: #dcfce7;
+    --bad: #b91c1c;
+    --bad-soft: #fee2e2;
+    --neutral-soft: #e5e7eb;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 16px;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: 100vh;
+  }
+  nav.toc {
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    padding: 24px 20px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    font-size: 14px;
+  }
+  nav.toc h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin: 0 0 12px;
+  }
+  nav.toc ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: section;
+  }
+  nav.toc ol > li {
+    counter-increment: section;
+    margin-bottom: 6px;
+  }
+  nav.toc ol > li::before {
+    content: counter(section) ". ";
+    color: var(--text-muted);
+  }
+  nav.toc a {
+    color: var(--text);
+    text-decoration: none;
+  }
+  nav.toc a:hover { color: var(--accent); }
+  nav.toc ul {
+    list-style: none;
+    padding-left: 16px;
+    margin: 6px 0 8px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  nav.toc ul a { color: var(--text-muted); }
+
+  main {
+    padding: 48px 56px 96px;
+    max-width: 980px;
+  }
+  header.cover {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    color: #f1f5f9;
+    padding: 48px;
+    border-radius: 16px;
+    margin-bottom: 48px;
+  }
+  header.cover h1 {
+    font-size: 36px;
+    margin: 0 0 8px;
+  }
+  header.cover p.subtitle {
+    color: #cbd5e1;
+    margin: 0 0 24px;
+    font-size: 18px;
+  }
+  header.cover .meta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    color: #94a3b8;
+    font-size: 14px;
+  }
+  header.cover .meta span {
+    border-left: 2px solid #334155;
+    padding-left: 12px;
+  }
+  header.cover .meta span:first-child { border-left: none; padding-left: 0; }
+
+  h1, h2, h3, h4 {
+    color: var(--text);
+    line-height: 1.25;
+  }
+  h2 {
+    font-size: 28px;
+    margin: 56px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 {
+    font-size: 22px;
+    margin: 32px 0 12px;
+  }
+  h4 {
+    font-size: 17px;
+    margin: 20px 0 8px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  p { margin: 8px 0 12px; }
+
+  code {
+    background: var(--bg-soft);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.92em;
+  }
+  pre {
+    background: var(--bg-code);
+    color: #e2e8f0;
+    padding: 16px 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  pre code { background: transparent; padding: 0; color: inherit; }
+
+  .callout {
+    border-left: 4px solid;
+    padding: 14px 18px;
+    margin: 16px 0;
+    border-radius: 0 8px 8px 0;
+    background: var(--bg-soft);
+  }
+  .callout.info    { border-color: var(--accent); background: var(--accent-soft); }
+  .callout.warn    { border-color: var(--warn);   background: var(--warn-soft); }
+  .callout.good    { border-color: var(--good);   background: var(--good-soft); }
+  .callout.bad     { border-color: var(--bad);    background: var(--bad-soft); }
+  .callout strong { display: block; margin-bottom: 4px; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    background: var(--bg-soft);
+    font-weight: 600;
+    color: var(--text);
+  }
+  tr:last-child td { border-bottom: none; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .field {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 16px 0;
+  }
+  .field h3 {
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .field h3 .field-name {
+    font-size: 21px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .field h3 .var-name {
+    background: var(--bg-code);
+    color: #93c5fd;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    font-weight: 400;
+  }
+  .field .where {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: -4px 0 12px;
+  }
+  .field .where::before {
+    content: "📍 ";
+    margin-right: 4px;
+  }
+  .field dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 16px;
+    margin: 12px 0 8px;
+  }
+  .field dt {
+    color: var(--text-muted);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .field dd { margin: 0; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .badge.datasheet  { background: var(--good-soft); color: var(--good); }
+  .badge.preset     { background: var(--accent-soft); color: var(--accent); }
+  .badge.policy     { background: var(--warn-soft); color: var(--warn); }
+  .badge.metadata   { background: var(--neutral-soft); color: var(--text-muted); }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+  }
+  .card h4 { margin-top: 0; }
+
+  ul.checklist {
+    list-style: none;
+    padding-left: 0;
+  }
+  ul.checklist li {
+    padding-left: 28px;
+    position: relative;
+    margin-bottom: 8px;
+  }
+  ul.checklist li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: var(--good);
+    font-weight: 700;
+  }
+  ul.checklist li.no::before {
+    content: "✗";
+    color: var(--bad);
+  }
+
+  details {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 18px;
+    margin: 8px 0;
+  }
+  details summary {
+    cursor: pointer;
+    font-weight: 600;
+  }
+  details[open] summary { margin-bottom: 12px; }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 32px 0;
+  }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.toc { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+    main { padding: 24px; }
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+  @media print {
+    nav.toc { display: none; }
+    .layout { grid-template-columns: 1fr; }
+    main { padding: 0; max-width: none; }
+    body { background: white; font-size: 12px; }
+    .field, table, .card, header.cover { break-inside: avoid; }
+    pre { white-space: pre-wrap; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+<nav class="toc">
+  <h2>Sumário</h2>
+  <ol>
+    <li><a href="#sobre">Sobre o app</a></li>
+    <li><a href="#fluxo">Fluxo de uso</a></li>
+    <li><a href="#o-que-testa">O que o app testa</a>
+      <ul>
+        <li><a href="#testa-ram">RAM</a></li>
+        <li><a href="#testa-storage">Storage</a></li>
+      </ul>
+    </li>
+    <li><a href="#cadastro">Cadastro de device</a>
+      <ul>
+        <li><a href="#cadastro-id">Identificação</a></li>
+        <li><a href="#cadastro-hw">Hardware esperado</a></li>
+        <li><a href="#cadastro-storage">Limiares de Storage</a></li>
+        <li><a href="#cadastro-quick">Teste padrão (rápido)</a></li>
+        <li><a href="#cadastro-deep">Diagnóstico profundo de RAM</a></li>
+      </ul>
+    </li>
+    <li><a href="#auto-fill">Auto-preenchimento</a></li>
+    <li><a href="#presets">Tabelas de presets</a>
+      <ul>
+        <li><a href="#preset-ram">RAM Preset</a></li>
+        <li><a href="#preset-storage">Storage Class</a></li>
+      </ul>
+    </li>
+    <li><a href="#datasheet">Datasheet × app</a>
+      <ul>
+        <li><a href="#datasheet-tem">O que está</a></li>
+        <li><a href="#datasheet-nao-tem">O que NÃO está</a></li>
+        <li><a href="#datasheet-exemplo">Exemplo prático</a></li>
+      </ul>
+    </li>
+    <li><a href="#ler-datasheet">Como ler um datasheet</a></li>
+    <li><a href="#sem-datasheet">Sem datasheet — descobrir no device</a></li>
+    <li><a href="#executar">Executar um teste</a></li>
+    <li><a href="#glossario">Glossário</a></li>
+    <li><a href="#faq">FAQ — perguntas comuns</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<header class="cover">
+  <h1>MemoryTest</h1>
+  <p class="subtitle">Manual de uso para fábrica e QA</p>
+  <div class="meta">
+    <span>Versão do documento: 1.0</span>
+    <span>Público: linha de produção, QA, validação</span>
+    <span>Plataforma: Android (factory build com root)</span>
+  </div>
+</header>
+
+<!-- ========================================================== -->
+<h2 id="sobre">1. Sobre o app</h2>
+
+<p>
+  O <strong>MemoryTest</strong> é uma ferramenta de validação fabril para
+  Android. Roda dois conjuntos de testes nas memórias do device:
+</p>
+
+<ul>
+  <li><strong>RAM (memória volátil):</strong> usa o <code>memtester</code> para
+    escrever padrões de bits, ler de volta e identificar células defeituosas.</li>
+  <li><strong>Storage (eMMC ou UFS):</strong> mede velocidade real de escrita e
+    leitura sequencial via <code>dd</code>, lê o estado de saúde
+    (<em>life time</em>, <em>pre-EOL</em>) reportado pelo controlador da NAND, e
+    valida integridade pós-escrita por hash.</li>
+</ul>
+
+<div class="callout info">
+  <strong>Por que "MemoryTest" se também testa storage?</strong>
+  Em fabricação de device móvel, "memory" é jargão para qualquer chip de
+  memória — RAM volátil <em>e</em> storage não-volátil. Ambos são chips de
+  memória soldados na mesma placa, e ambos precisam ser validados antes do
+  device sair da esteira.
+</div>
+
+<p>
+  O resultado de cada execução é PASS ou FAIL, com log detalhado.
+  Cada device cadastrado tem seus próprios limiares — porque o que é "lento"
+  para UFS 4.0 é absurdamente rápido para eMMC entry, e o que é teste rápido
+  para 4 GB de RAM seria infinito em 16 GB.
+</p>
+
+<!-- ========================================================== -->
+<h2 id="fluxo">2. Fluxo de uso</h2>
+
+<ol>
+  <li><strong>Cadastrar o device</strong> — nome, fabricante, RAM, storage, classe
+    do storage. O app sugere valores razoáveis automaticamente.</li>
+  <li><strong>Selecionar o device</strong> na lista.</li>
+  <li><strong>Escolher o teste</strong>: <em>Factory</em> (rápido, ~1–3 min) ou
+    <em>Deep RAM</em> (longo, dezenas de minutos a horas).</li>
+  <li><strong>Aguardar a execução</strong>; acompanhar status por seção e log
+    completo.</li>
+  <li><strong>Ver o resultado</strong>: PASS ou FAIL com justificativa, e
+    salvar o relatório se necessário.</li>
+</ol>
+
+<!-- ========================================================== -->
+<h2 id="o-que-testa">3. O que o app testa</h2>
+
+<h3 id="testa-ram">3.1 RAM</h3>
+<p>
+  O <code>memtester</code> aloca uma região de RAM e executa uma bateria de
+  padrões de teste (todos zeros, todos uns, walking ones, walking zeros, XOR
+  patterns, bit flip, etc.). Lê de volta e compara. Qualquer divergência é um
+  bit ruim.
+</p>
+<p>Defeitos típicos que o memtester pega:</p>
+<ul>
+  <li>Bit stuck (sempre 0 ou sempre 1, independente do que foi escrito).</li>
+  <li>Crosstalk (escrita em um endereço afeta o vizinho).</li>
+  <li>Falha intermitente sob padrão específico (refresh, retenção marginal).</li>
+  <li>Endereçamento errado (escrita em A é lida em B).</li>
+</ul>
+<p>
+  RAM <strong>não tem desgaste</strong>. Ou está boa, ou está com defeito. Por
+  isso o teste binariamente passa ou falha — não existe "75% de vida útil de
+  RAM".
+</p>
+
+<h3 id="testa-storage">3.2 Storage (eMMC / UFS)</h3>
+<p>O teste de storage tem três partes:</p>
+<ol>
+  <li><strong>Health check</strong>: lê <code>life_time_estimation_a/b</code> (UFS) ou
+    <code>life_time</code> (eMMC) do <code>sysfs</code>. Esses são contadores
+    mantidos pelo próprio controlador do chip — quanto da NAND já foi gasta.
+    Storage novo de fábrica deve reportar <code>0x01</code> (0–10% usado).
+    Valor alto em device novo indica chip recondicionado, downgrade fraudulento
+    ou batch antigo.</li>
+  <li><strong>Velocidade I/O</strong>: o <code>dd</code> escreve um arquivo de
+    tamanho configurável em <code>/data</code>, mede o tempo, calcula MB/s.
+    Faz o mesmo para leitura, depois de limpar o cache. Compara com o limiar
+    mínimo do device — se ficar abaixo, FAIL.</li>
+  <li><strong>Integridade</strong>: calcula MD5 do arquivo escrito, força
+    <code>sync</code>, lê de novo, recalcula. Se hashes diferem, há corrupção
+    silenciosa (NAND grava errado, FTL com bug).</li>
+</ol>
+
+<!-- ========================================================== -->
+<h2 id="cadastro">4. Cadastro de device — campo a campo</h2>
+
+<p>
+  Cada campo do formulário tem uma origem indicada por uma das tags abaixo:
+</p>
+
+<ul>
+  <li><span class="badge metadata">METADATA</span> Só identifica o device. Não vai para o script.</li>
+  <li><span class="badge datasheet">DATASHEET</span> Vem direto do datasheet do componente.</li>
+  <li><span class="badge preset">PRESET</span> Sugerido automaticamente quando você seleciona RAM ou Storage Class.</li>
+  <li><span class="badge policy">POLÍTICA DE TESTE</span> Decisão da fábrica/QA, não do componente. Calibra o rigor.</li>
+</ul>
+
+<!-- ========================================================== -->
+<h3 id="cadastro-id">4.1 Seção "Identificação"</h3>
+
+<div class="field">
+  <h3>
+    <span class="field-name">Nome do device</span>
+    <span class="badge metadata">METADATA</span>
+  </h3>
+  <p class="where">Cadastro de device → Identificação → <strong>Nome do device</strong></p>
+  <dl>
+    <dt>O que é</dt><dd>Nome amigável que aparece na lista. Ex: <code>T2070D</code>, <code>Galaxy A15</code>.</dd>
+    <dt>De onde tirar</dt><dd>Você escolhe. Use o nome comercial ou interno do device.</dd>
+    <dt>Vai para o script?</dt><dd>Não.</dd>
+  </dl>
+</div>
+
+<div class="field">
+  <h3>
+    <span class="field-name">Fabricante</span>
+    <span class="badge metadata">METADATA</span>
+  </h3>
+  <p class="where">Cadastro de device → Identificação → <strong>Fabricante</strong></p>
+  <dl>
+    <dt>O que é</dt><dd>Quem produziu o device — ou quem produz o chip de memória, se quiser registrar isso.</dd>
+    <dt>De onde tirar</dt><dd>Datasheet do chip (ex: Samsung, SK hynix, Micron) ou do device.</dd>
+    <dt>Vai para o script?</dt><dd>Não.</dd>
+  </dl>
+</div>
+
+<div class="field">
+  <h3>
+    <span class="field-name">Código do modelo (opcional)</span>
+    <span class="badge metadata">METADATA</span>
+  </h3>
+  <p class="where">Cadastro de device → Identificação → <strong>Código do modelo (opcional)</strong></p>
+  <dl>
+    <dt>O que é</dt><dd>Part number do componente / device. Ex: <code>KMDH6001DA-B422</code>, <code>H9HP52ACPMADAR</code>.</dd>
+    <dt>De onde tirar</dt><dd>Capa do datasheet (sempre no canto superior).</dd>
+  </dl>
+</div>
+
+<div class="field">
+  <h3>
+    <span class="field-name">Notas (opcional)</span>
+    <span class="badge metadata">METADATA</span>
+  </h3>
+  <p class="where">Cadastro de device → Identificação → <strong>Notas (opcional)</strong></p>
+  <dl>
+    <dt>O que é</dt><dd>Campo livre. Use para registrar o batch, observações, link para datasheet, etc.</dd>
+  </dl>
+</div>
+
+<!-- ========================================================== -->
+<h3 id="cadastro-hw">4.2 Seção "Hardware esperado"</h3>
+
+<div class="field">
+  <h3>
+    <span class="field-name">RAM (GB)</span>
+    <span class="var-name">EXPECTED_RAM_GB</span>
+    <span class="badge datasheet">DATASHEET</span>
+  </h3>
+  <p class="where">Cadastro de device → Hardware esperado → <strong>RAM (GB)</strong></p>
+  <dl>
+    <dt>O que é</dt><dd>Quanto de RAM o device <strong>deveria</strong> ter. Selecionado via dropdown.</dd>
+    <dt>O que o script faz</dt>
+    <dd>Lê <code>MemTotal</code> do <code>/proc/meminfo</code>. Se a diferença for maior que ~10%, FAIL.</dd>
+    <dt>Por que importa</dt>
+    <dd>Pega device com chip de RAM faltando, mal soldado, ou com binning errado da fábrica (ex: vendedor mandou 2 GB em vez de 4 GB).</dd>
+    <dt>Onde achar no datasheet</dt>
+    <dd>Linha "Memory Density" da seção LPDDR. Lembrar conversão <strong>1 byte = 8 bits</strong>:
+    <code>16 Gb = 2 GB</code>, <code>32 Gb = 4 GB</code>, <code>64 Gb = 8 GB</code>, <code>128 Gb = 16 GB</code>.</dd>
+    <dt>Efeito de auto-fill</dt>
+    <dd>Selecionar a quantidade preenche automaticamente todos os campos da seção "Teste padrão (rápido)" e "Diagnóstico profundo de RAM" com valores sugeridos.</dd>
+    <dt>Default se nada for setado</dt><dd><code>4</code></dd>
+  </dl>
+</div>
+
+<div class="field">
+  <h3>
+    <span class="field-name">Storage (GB)</span>
+    <span class="var-name">EXPECTED_STORAGE_GB</span>
+    <span class="badge datasheet">DATASHEET</span>
+  </h3>
+  <p class="where">Cadastro de device → Hardware esperado → <strong>Storage (GB)</strong></p>
+  <dl>
+    <dt>O que é</dt><dd>Capacidade nominal do storage (eMMC/UFS) em GB.</dd>
+    <dt>Onde achar no datasheet</dt>
+    <dd>Capa: ex. "<em>64GB e.MMC</em>", "<em>128GB UFS 3.1</em>".</dd>
+    <dt>Vai para o script?</dt>
+    <dd>Sim, como metadado de validação. Hoje não derruba o teste sozinho, mas é registrado no log.</dd>
+  </dl>
+</div>
+
+<div class="field">
+  <h3>
+    <span class="field-name">Classe de storage</span>
+    <span class="badge datasheet">DATASHEET</span>
+    <span class="badge preset">PRESET</span>
+  </h3>
+  <p class="where">Cadastro de device → Hardware esperado → <strong>Classe de storage</strong></p>
+  <dl>
+    <dt>O que é</dt>
+    <dd>Geração de tecnologia do storage. Selecionado via dropdown. Define a régua de velocidade que o teste vai usar.</dd>
+    <dt>Opções</dt>
+    <dd>eMMC entry (≤4.5) · eMMC 5.0 · eMMC 5.1 · UFS 2.1 · UFS 3.1 · UFS 4.0 · Personalizado</dd>
+    <dt>Onde achar no datasheet</dt>
+    <dd>Seção de features. Procure "<em>eMMC Ver. 5.x compatible</em>" ou "<em>UFS 3.x compliant</em>".</dd>
+    <dt>Por que precisa selecionar</dt>
+    <dd>A diferença de velocidade entre eMMC entry e UFS 4.0 é ~100×. Sem informar a classe, um chip UFS 4.0 com defeito grave passaria no teste, ou um eMMC entry saudável seria reprovado.</dd>
+    <dt>Efeito de auto-fill</dt>
+    <dd>Selecionar a classe preenche automaticamente os três campos da seção "Limiares de Storage": <strong>Velocidade mínima de escrita</strong>, <strong>Velocidade mínima de leitura</strong> e <strong>Tamanho do teste de I/O</strong>. Veja a tabela em <a href="#preset-storage">§ Storage Class</a>.</dd>
+  </dl>
+</div>
+
+<!-- ========================================================== -->
+<h3 id="cadastro-storage">4.3 Seção "Limiares de Storage"</h3>
+
+<p>
+  Esses três campos definem o que conta como "storage saudável". São auto-preenchidos
+  ao escolher a <strong>Classe de storage</strong> na seção anterior, mas
+  <strong>tudo é editável</strong> — você pode apertar ou afrouxar a régua conforme
+  a política da fábrica.
+</p>
+
+<div class="field">
+  <h3>
+    <span class="field-name">Velocidade mínima de escrita (MB/s)</span>
+    <span class="var-name">MIN_WRITE_MBPS</span>
+    <span class="badge preset">PRESET</span>
+    <span class="badge policy">POLÍTICA DE TESTE</span>
+  </h3>
+  <p class="where">Cadastro de device → Limiares de Storage → <strong>Velocidade mínima de escrita (MB/s)</strong></p>
+  <dl>
+    <dt>O que é</dt>
+    <dd>Velocidade mínima de escrita sequencial em MB/s para o teste passar.</dd>
+    <dt>O que o script faz</dt>
+    <dd>Mede com <code>dd if=/dev/urandom of=testfile bs=4M count=N conv=fsync</code>. Se a velocidade medida for menor que este valor, FAIL.</dd>
+    <dt>Como o valor é definido</dt>
+    <dd>~50% do throughput sustentado nominal de cada classe. É proposital: dá folga para variação normal de fábrica, mas pega NAND defeituosa, controlador ruim ou downgrade fraudulento (UFS 3.1 sendo entregue com performance de 2.1).</dd>
+    <dt>Default se nada for setado</dt><dd><code>50</code> (assume eMMC 5.1).</dd>
+  </dl>
+</div>
+
+<div class="field">
+  <h3>
+    <span class="field-name">Velocidade mínima de leitura (MB/s)</span>
+    <span class="var-name">MIN_READ_MBPS</span>
+    <span class="badge preset">PRESET</span>
+    <span class="badge policy">POLÍTICA DE TESTE</span>
+  </h3>
+  <p class="where">Cadastro de device → Limiares de Storage → <strong>Velocidade mínima de leitura (MB/s)</strong></p>
+  <dl>
+    <dt>O que é</dt>
+    <dd>Velocidade mínima de leitura sequencial em MB/s.</dd>
+    <dt>O que o script faz</dt>
+    <dd>Mede com <code>dd if=testfile of=/dev/null bs=4M</code> depois de limpar o cache (<code>echo 3 &gt; /proc/sys/vm/drop_caches</code>). Compara com este valor.</dd>
+    <dt>Default se nada for setado</dt><dd><code>100</code></dd>
+  </dl>
+</div>
+
+<div class="field">
+  <h3>
+    <span class="field-name">Tamanho do teste de I/O (MB)</span>
+    <span class="var-name">STORAGE_TEST_SIZE_MB</span>
+    <span class="badge preset">PRESET</span>
+    <span class="badge policy">POLÍTICA DE TESTE</span>
+  </h3>
+  <p class="where">Cadastro de device → Limiares de Storage → <strong>Tamanho do teste de I/O (MB)</strong></p>
+  <dl>
+    <dt>O que é</dt>
+    <dd>Tamanho (em MB) do arquivo escrito e lido para medir velocidade.</dd>
+    <dt>Por que importa</dt>
+    <dd>
+      Muito pequeno → fica todo no cache de RAM e mede velocidade da RAM, não do storage. Falsa medição otimista.<br>
+      Muito grande → demora demais na linha de produção. Em UFS 4.0, 256 MB cabem inteiros no <em>WriteBooster</em> SLC e mascaram a NAND real.
+    </dd>
+    <dt>Default se nada for setado</dt><dd><code>512</code></dd>
+  </dl>
+</div>
+
+<!-- ========================================================== -->
+<h3 id="cadastro-quick">4.4 Seção "Teste padrão (rápido)"</h3>
+
+<p>
+  Este conjunto de campos controla o teste de RAM <strong>rápido</strong>, usado na
+  esteira de produção. Objetivo: ~30–90s, suficiente para pegar defeito grosseiro
+  sem travar a linha. Auto-preenchidos ao escolher a quantidade de RAM na seção
+  "Hardware esperado".
+</p>
+
+<div class="field">
+  <h3>
+    <span class="field-name">% da RAM disponível</span>
+    <span class="var-name">QUICK_MEMTEST_PERCENT</span>
+    <span class="badge preset">PRESET</span>
+  </h3>
+  <p class="where">Cadastro de device → Teste padrão (rápido) → <strong>% da RAM disponível</strong></p>
+  <dl>
+    <dt>O que é</dt>
+    <dd>Quantos por cento da RAM <strong>livre</strong> (não da total) o memtester vai usar.</dd>
+    <dt>Por que % e não MB fixo</dt>
+    <dd>RAM livre varia entre devices e momentos (Android usa cache agressivo). Pegar uma fração é mais robusto.</dd>
+    <dt>Por que cai em devices grandes</dt>
+    <dd>O memtester é não-linear no tempo. Em 16 GB, testar 50% (8 GB) levaria horas. Por isso devices grandes recebem % menor.</dd>
+    <dt>Default</dt><dd><code>40</code></dd>
+  </dl>
+</div>
+
+<div class="field">
+  <h3>
+    <span class="field-name">Máximo testado (MB)</span>
+    <span class="var-name">QUICK_MEMTEST_MAX_MB</span>
+    <span class="badge preset">PRESET</span>
+  </h3>
+  <p class="where">Cadastro de device → Teste padrão (rápido) → <strong>Máximo testado (MB)</strong></p>
+  <dl>
+    <dt>O que é</dt>
+    <dd>Limite superior. Mesmo que <code>% da RAM disponível × RAM livre</code> dê um valor maior, o memtester nunca vai usar mais que isso.</dd>
+    <dt>Por que existe</dt>
+    <dd>Trava de segurança contra OOM em devices que reportam muita RAM livre, e contra tempo de teste explodir.</dd>
+    <dt>Default</dt><dd><code>512</code></dd>
+  </dl>
+</div>
+
+<div class="field">
+  <h3>
+    <span class="field-name">Mínimo testado (MB)</span>
+    <span class="var-name">QUICK_MEMTEST_MIN_MB</span>
+    <span class="badge preset">PRESET</span>
+  </h3>
+  <p class="where">Cadastro de device → Teste padrão (rápido) → <strong>Mínimo testado (MB)</strong></p>
+  <dl>
+    <dt>O que é</dt>
+    <dd>Limite inferior. Se <code>% da RAM disponível × RAM livre</code> der menos que isso, o memtester usa esse mínimo.</dd>
+    <dt>Por que existe</dt>
+    <dd>Abaixo de ~64–128 MB o memtester não exercita o subsistema de cache/MMU adequadamente — RAM ruim pode passar batido.</dd>
+    <dt>Default</dt><dd><code>128</code></dd>
+  </dl>
+</div>
+
+<div class="field">
+  <h3>
+    <span class="field-name">Loops do memtester</span>
+    <span class="var-name">QUICK_MEMTEST_LOOPS</span>
+    <span class="badge preset">PRESET</span>
+  </h3>
+  <p class="where">Cadastro de device → Teste padrão (rápido) → <strong>Loops do memtester</strong></p>
+  <dl>
+    <dt>O que é</dt>
+    <dd>Quantas vezes o memtester repete a bateria completa de padrões.</dd>
+    <dt>Recomendação</dt>
+    <dd>Sempre <code>1</code> no teste padrão. Linha de produção não tem tempo para 2 voltas, e uma única volta pega defeito grosseiro com ótima taxa.</dd>
+    <dt>Default</dt><dd><code>1</code></dd>
+  </dl>
+</div>
+
+<div class="field">
+  <h3>
+    <span class="field-name">Timeout (segundos)</span>
+    <span class="var-name">QUICK_MEMTEST_TIMEOUT_S</span>
+    <span class="badge preset">PRESET</span>
+  </h3>
+  <p class="where">Cadastro de device → Teste padrão (rápido) → <strong>Timeout (segundos)</strong></p>
+  <dl>
+    <dt>O que é</dt>
+    <dd>Watchdog. Se o memtester não terminar em N segundos, o script o mata e marca FAIL.</dd>
+    <dt>Por que existe</dt>
+    <dd>RAM ruim pode causar hang. Sem timeout, a esteira de produção fica parada esperando.</dd>
+    <dt>Default</dt><dd><code>600</code> (10 min)</dd>
+  </dl>
+</div>
+
+<!-- ========================================================== -->
+<h3 id="cadastro-deep">4.5 Seção "Diagnóstico profundo de RAM"</h3>
+
+<p>
+  Versão pesada do teste de RAM. Não é para linha — é para diagnóstico de
+  bancada, RMA, validação de troca de chip. Usa mais RAM, mais voltas, mais
+  tempo. Os campos têm o mesmo significado dos da seção anterior, com valores
+  mais agressivos. Auto-preenchidos ao escolher a quantidade de RAM na seção
+  "Hardware esperado".
+</p>
+
+<div class="field">
+  <h3>
+    <span class="field-name">% da RAM disponível</span>
+    <span class="var-name">MEMTEST_PERCENT</span>
+    <span class="badge preset">PRESET</span>
+  </h3>
+  <p class="where">Cadastro de device → Diagnóstico profundo de RAM → <strong>% da RAM disponível</strong></p>
+  <dl>
+    <dt>O que é</dt>
+    <dd>Mesmo conceito do teste padrão, porém valores maiores. O diagnóstico profundo usa mais RAM para pegar defeitos sutis.</dd>
+    <dt>Faixa típica</dt><dd>25–60% (vs 15–50% do teste padrão).</dd>
+    <dt>Default</dt><dd><code>60</code></dd>
+  </dl>
+</div>
+
+<div class="field">
+  <h3>
+    <span class="field-name">Máximo testado (MB)</span>
+    <span class="var-name">MEMTEST_MAX_MB</span>
+    <span class="badge preset">PRESET</span>
+  </h3>
+  <p class="where">Cadastro de device → Diagnóstico profundo de RAM → <strong>Máximo testado (MB)</strong></p>
+  <dl>
+    <dt>O que é</dt>
+    <dd>Teto absoluto de RAM testada no diagnóstico profundo.</dd>
+    <dt>Faixa típica</dt><dd>512–4096 MB. Em devices a partir de 2 GB, normalmente 4096 MB (limite prático do memtester antes de fragmentação).</dd>
+    <dt>Default</dt><dd><code>2048</code></dd>
+  </dl>
+</div>
+
+<div class="field">
+  <h3>
+    <span class="field-name">Mínimo testado (MB)</span>
+    <span class="var-name">MIN_MEMTEST_MB</span>
+    <span class="badge preset">PRESET</span>
+  </h3>
+  <p class="where">Cadastro de device → Diagnóstico profundo de RAM → <strong>Mínimo testado (MB)</strong></p>
+  <dl>
+    <dt>O que é</dt>
+    <dd>Piso mínimo de RAM testada — abaixo disso o memtester não exercita o cache/MMU adequadamente.</dd>
+    <dt>Default</dt><dd><code>128</code></dd>
+  </dl>
+</div>
+
+<div class="field">
+  <h3>
+    <span class="field-name">Loops do memtester</span>
+    <span class="var-name">MEMTEST_LOOPS</span>
+    <span class="badge preset">PRESET</span>
+  </h3>
+  <p class="where">Cadastro de device → Diagnóstico profundo de RAM → <strong>Loops do memtester</strong></p>
+  <dl>
+    <dt>O que é</dt>
+    <dd>Quantas voltas completas. Mais voltas = mais chance de pegar defeito intermitente.</dd>
+    <dt>Recomendação</dt>
+    <dd>3 voltas em devices com até 6 GB. 2 voltas em devices maiores (8 GB+) — mais voltas levaria horas.</dd>
+    <dt>Default</dt><dd><code>3</code></dd>
+  </dl>
+</div>
+
+<div class="field">
+  <h3>
+    <span class="field-name">Timeout (segundos)</span>
+    <span class="var-name">MEMTEST_TIMEOUT_S</span>
+    <span class="badge preset">PRESET</span>
+  </h3>
+  <p class="where">Cadastro de device → Diagnóstico profundo de RAM → <strong>Timeout (segundos)</strong></p>
+  <dl>
+    <dt>O que é</dt>
+    <dd>Watchdog do diagnóstico profundo. Bem maior que o teste padrão.</dd>
+    <dt>Faixa típica</dt><dd>1200 s (20 min) em 1 GB → 7800 s (~2 h) em 18 GB. Calibrado por RAM × loops.</dd>
+    <dt>Default</dt><dd><code>3600</code> (1 h)</dd>
+  </dl>
+</div>
+
+<!-- ========================================================== -->
+<h2 id="auto-fill">5. Auto-preenchimento e edição livre</h2>
+
+<div class="callout info">
+  <strong>Princípio:</strong> selecionar RAM ou Storage Class é uma <em>sugestão</em>.
+  O app preenche valores razoáveis, mas <strong>todos os campos continuam editáveis</strong>.
+</div>
+
+<h3>O que dispara o auto-fill</h3>
+<ul>
+  <li>
+    <strong>Selecionar a quantidade de RAM</strong> →
+    preenche todos os <code>QUICK_MEMTEST_*</code> e
+    <code>MEMTEST_*</code> (deep) com o preset daquele tier.
+  </li>
+  <li>
+    <strong>Selecionar a Storage Class</strong> →
+    preenche <code>MIN_WRITE_MBPS</code>, <code>MIN_READ_MBPS</code> e
+    <code>STORAGE_TEST_SIZE_MB</code>.
+  </li>
+  <li>
+    <strong>Existir outro device cadastrado com a mesma quantidade de RAM</strong> →
+    o app oferece "copiar configuração" desse device. Útil quando você ajustou
+    valores num device e quer replicar em outros do mesmo tier.
+  </li>
+</ul>
+
+<h3>Quando ajustar manualmente</h3>
+<ul>
+  <li>Storage industrial / pSLC / SLC: aguenta velocidades menores. Reduza
+    <code>MIN_WRITE_MBPS</code> e <code>MIN_READ_MBPS</code>.</li>
+  <li>Storage com WriteBooster muito grande (UFS 3.1+): aumente
+    <code>STORAGE_TEST_SIZE_MB</code> para sair do cache SLC.</li>
+  <li>RAM com timing apertado / overclock: aumentar <code>QUICK_MEMTEST_LOOPS</code>
+    para 2 pode ajudar a flagrar instabilidade térmica.</li>
+  <li>Esteira muito apertada: reduzir <code>QUICK_MEMTEST_PERCENT</code> para
+    cortar tempo, ciente da menor cobertura.</li>
+</ul>
+
+<h3>Snapshot — importante</h3>
+<div class="callout warn">
+  <strong>Os valores são salvos como snapshot no device.</strong>
+  Se o app for atualizado e os presets mudarem, os devices <em>já cadastrados</em>
+  <strong>não</strong> recebem os valores novos automaticamente. Para repropagar,
+  abra o device, reselecione RAM ou Storage Class, e salve.
+</div>
+
+<!-- ========================================================== -->
+<h2 id="presets">6. Tabelas de presets</h2>
+
+<h3 id="preset-ram">6.1 RAM Preset</h3>
+<p>Aplicado quando você seleciona "Quantidade de RAM" no formulário.</p>
+
+<h4>Quick test (factory)</h4>
+<table>
+  <thead>
+    <tr>
+      <th class="num">RAM (GB)</th>
+      <th class="num">PERCENT</th>
+      <th class="num">MAX_MB</th>
+      <th class="num">MIN_MB</th>
+      <th class="num">LOOPS</th>
+      <th class="num">TIMEOUT_S</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="num">50</td><td class="num">384</td><td class="num">64</td><td class="num">1</td><td class="num">300</td></tr>
+    <tr><td class="num">2</td><td class="num">40</td><td class="num">512</td><td class="num">128</td><td class="num">1</td><td class="num">600</td></tr>
+    <tr><td class="num">3</td><td class="num">40</td><td class="num">512</td><td class="num">128</td><td class="num">1</td><td class="num">600</td></tr>
+    <tr><td class="num">4</td><td class="num">40</td><td class="num">512</td><td class="num">128</td><td class="num">1</td><td class="num">600</td></tr>
+    <tr><td class="num">6</td><td class="num">30</td><td class="num">1024</td><td class="num">128</td><td class="num">1</td><td class="num">900</td></tr>
+    <tr><td class="num">8</td><td class="num">25</td><td class="num">1024</td><td class="num">128</td><td class="num">1</td><td class="num">900</td></tr>
+    <tr><td class="num">10</td><td class="num">22</td><td class="num">2048</td><td class="num">128</td><td class="num">1</td><td class="num">1100</td></tr>
+    <tr><td class="num">12</td><td class="num">20</td><td class="num">2048</td><td class="num">128</td><td class="num">1</td><td class="num">1200</td></tr>
+    <tr><td class="num">16</td><td class="num">15</td><td class="num">2048</td><td class="num">128</td><td class="num">1</td><td class="num">1200</td></tr>
+    <tr><td class="num">18</td><td class="num">13</td><td class="num">2048</td><td class="num">128</td><td class="num">1</td><td class="num">1300</td></tr>
+    <tr><td class="num">24</td><td class="num">12</td><td class="num">2048</td><td class="num">128</td><td class="num">1</td><td class="num">1500</td></tr>
+  </tbody>
+</table>
+
+<h4>Deep test (bancada / RMA)</h4>
+<table>
+  <thead>
+    <tr>
+      <th class="num">RAM (GB)</th>
+      <th class="num">PERCENT</th>
+      <th class="num">MAX_MB</th>
+      <th class="num">LOOPS</th>
+      <th class="num">TIMEOUT_S</th>
+      <th class="num">MIN_MB</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="num">60</td><td class="num">512</td><td class="num">3</td><td class="num">1200</td><td class="num">64</td></tr>
+    <tr><td class="num">2</td><td class="num">60</td><td class="num">4096</td><td class="num">3</td><td class="num">1800</td><td class="num">128</td></tr>
+    <tr><td class="num">3</td><td class="num">60</td><td class="num">4096</td><td class="num">3</td><td class="num">2400</td><td class="num">128</td></tr>
+    <tr><td class="num">4</td><td class="num">60</td><td class="num">4096</td><td class="num">3</td><td class="num">3000</td><td class="num">128</td></tr>
+    <tr><td class="num">6</td><td class="num">50</td><td class="num">4096</td><td class="num">3</td><td class="num">3600</td><td class="num">128</td></tr>
+    <tr><td class="num">8</td><td class="num">45</td><td class="num">4096</td><td class="num">2</td><td class="num">4500</td><td class="num">128</td></tr>
+    <tr><td class="num">10</td><td class="num">40</td><td class="num">4096</td><td class="num">2</td><td class="num">5000</td><td class="num">128</td></tr>
+    <tr><td class="num">12</td><td class="num">35</td><td class="num">4096</td><td class="num">2</td><td class="num">5400</td><td class="num">128</td></tr>
+    <tr><td class="num">16</td><td class="num">30</td><td class="num">4096</td><td class="num">2</td><td class="num">7200</td><td class="num">128</td></tr>
+    <tr><td class="num">18</td><td class="num">28</td><td class="num">4096</td><td class="num">2</td><td class="num">7800</td><td class="num">128</td></tr>
+    <tr><td class="num">24</td><td class="num">25</td><td class="num">4096</td><td class="num">2</td><td class="num">7200</td><td class="num">128</td></tr>
+  </tbody>
+</table>
+
+<h3 id="preset-storage">6.2 Storage Class</h3>
+<p>Aplicado quando você seleciona a Storage Class no formulário.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Classe</th>
+      <th class="num">MIN_WRITE_MBPS</th>
+      <th class="num">MIN_READ_MBPS</th>
+      <th class="num">STORAGE_TEST_SIZE_MB</th>
+      <th>Quando usar</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>eMMC entry (≤4.5)</td>
+      <td class="num">15</td><td class="num">50</td><td class="num">256</td>
+      <td>Tablets antigos, IoT, set-top boxes pré-2014.</td>
+    </tr>
+    <tr>
+      <td>eMMC 5.0</td>
+      <td class="num">30</td><td class="num">80</td><td class="num">256</td>
+      <td>Entry-level 2014–2017.</td>
+    </tr>
+    <tr>
+      <td>eMMC 5.1</td>
+      <td class="num">50</td><td class="num">150</td><td class="num">512</td>
+      <td>Entry/mid 2017+, IoT moderno, devices industriais.</td>
+    </tr>
+    <tr>
+      <td>UFS 2.1</td>
+      <td class="num">80</td><td class="num">300</td><td class="num">512</td>
+      <td>Mid-range 2017–2020.</td>
+    </tr>
+    <tr>
+      <td>UFS 3.1</td>
+      <td class="num">300</td><td class="num">800</td><td class="num">1024</td>
+      <td>Flagships 2020–2023.</td>
+    </tr>
+    <tr>
+      <td>UFS 4.0</td>
+      <td class="num">1200</td><td class="num">2000</td><td class="num">2048</td>
+      <td>Flagships 2023+.</td>
+    </tr>
+    <tr>
+      <td>Personalizado</td>
+      <td class="num">50</td><td class="num">100</td><td class="num">512</td>
+      <td>Storage industrial, SLC, ou casos fora do padrão. Edite manualmente.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout info">
+  <strong>Como esses valores foram definidos:</strong> ~50% do throughput sustentado
+  nominal de cada classe (sustentado, não pico). Margem grande para variação normal,
+  mas pega NAND defeituosa, controlador ruim ou storage downgraded.
+</div>
+
+<!-- ========================================================== -->
+<h2 id="datasheet">7. Datasheet × app</h2>
+
+<p>
+  Nem todo campo do app sai do datasheet do componente. Datasheet descreve <em>o
+  que o chip é</em>; parâmetros de teste descrevem <em>como você vai testá-lo</em>.
+  Isso é decisão de fábrica/QA, não do fabricante do chip.
+</p>
+
+<h3 id="datasheet-tem">7.1 O que vem do datasheet</h3>
+<ul class="checklist">
+  <li><strong>Fabricante</strong> — capa / rodapé do PDF.</li>
+  <li><strong>Modelo / Part Number</strong> — capa.</li>
+  <li><strong>RAM (GB)</strong> — seção LPDDR, "Memory Density per die" × número de dies. Lembrar conversão Gb→GB.</li>
+  <li><strong>Storage (GB)</strong> — capa: "<em>NN GB e.MMC</em>" ou "<em>NN GB UFS</em>".</li>
+  <li><strong>Storage Class</strong> — seção features: "<em>eMMC Ver. 5.x</em>" ou "<em>UFS x.x</em>".</li>
+</ul>
+
+<h3 id="datasheet-nao-tem">7.2 O que NÃO vem do datasheet</h3>
+<ul class="checklist">
+  <li class="no"><strong>MIN_WRITE_MBPS / MIN_READ_MBPS</strong> — datasheet dá pico teórico (ex: HS400 = 400 MB/s), não o limiar de PASS/FAIL. O limiar é decisão de QA: ~50% do sustentado.</li>
+  <li class="no"><strong>STORAGE_TEST_SIZE_MB</strong> — parâmetro de teste, não do chip.</li>
+  <li class="no"><strong>QUICK_MEMTEST_*</strong> e <strong>MEMTEST_*</strong> — política de quanto e por quanto tempo testar. Vem da decisão de fábrica/QA.</li>
+</ul>
+
+<h3 id="datasheet-exemplo">7.3 Exemplo prático — KMDH6001DA-B422</h3>
+<p>
+  Tomando o datasheet do MCP <strong>Samsung KMDH6001DA-B422</strong> (T2070D), ponto a ponto:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Campo do app</th><th>Valor</th><th>Trecho do datasheet</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Fabricante</td><td>Samsung</td>
+      <td>Rodapé página 1: "<em>© 2017 Samsung Electronics Co., Ltd.</em>"</td>
+    </tr>
+    <tr>
+      <td>Modelo</td><td>KMDH6001DA-B422</td>
+      <td>Capa.</td>
+    </tr>
+    <tr>
+      <td>RAM esperada (GB)</td><td>4</td>
+      <td>Capa: "<em>32Gb(16Gb*2) DDP LPDDR4X</em>" → 32 Gb = 4 GiB.</td>
+    </tr>
+    <tr>
+      <td>Storage esperado (GB)</td><td>64</td>
+      <td>Capa: "<em>64GB e.MMC</em>".</td>
+    </tr>
+    <tr>
+      <td>Storage Class</td><td>eMMC 5.1</td>
+      <td>Página 2 (features): "<em>embedded MultiMediaCard Ver. 5.1 compatible</em>".</td>
+    </tr>
+    <tr>
+      <td>MIN_WRITE_MBPS / MIN_READ_MBPS</td><td>50 / 150 (preset)</td>
+      <td><em>Não está</em>. Preset eMMC 5.1 do app.</td>
+    </tr>
+    <tr>
+      <td>QUICK_MEMTEST_*</td><td>preset RAM 4 GB</td>
+      <td><em>Não está</em>. Política de teste.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ========================================================== -->
+<h2 id="ler-datasheet">8. Como ler um datasheet de memória</h2>
+
+<p>
+  Datasheet de chip de memória normalmente tem 100–300 páginas. Para o cadastro
+  no app, você só precisa olhar:
+</p>
+
+<h3>Página 1 — capa</h3>
+<p>Sempre tem:</p>
+<ul>
+  <li>Nome do fabricante (Samsung, SK hynix, Micron, Kingston…).</li>
+  <li>Part number completo (ex. <code>KMDH6001DA-B422</code>).</li>
+  <li>Resumo do conteúdo: "<em>NN GB eMMC + MM Gb LPDDR4X</em>".</li>
+</ul>
+
+<h3>Seção 1.0 / "Features"</h3>
+<p>Em torno da página 2–4. Procure:</p>
+<ul>
+  <li><strong>"<em>embedded MultiMediaCard Ver. X.Y</em>"</strong> → Storage Class é eMMC X.Y.</li>
+  <li><strong>"<em>UFS Version X.Y compliant</em>"</strong> ou <strong>"<em>HS-Gear N</em>"</strong> → UFS, ver tabela abaixo:
+    <table>
+      <thead><tr><th>Versão UFS</th><th>HS-Gear típico</th></tr></thead>
+      <tbody>
+        <tr><td>2.1</td><td>Gear3</td></tr>
+        <tr><td>3.1</td><td>Gear4</td></tr>
+        <tr><td>4.0</td><td>Gear5</td></tr>
+      </tbody>
+    </table>
+  </li>
+  <li><strong>"<em>Memory Density per die</em>"</strong> + <strong>"<em>per channel</em>"</strong> + número de dies → calcula a RAM total.</li>
+</ul>
+
+<h3>Conversões úteis</h3>
+<table>
+  <thead><tr><th>Datasheet diz</th><th>Significa</th></tr></thead>
+  <tbody>
+    <tr><td>16 Gb</td><td>2 GB de RAM</td></tr>
+    <tr><td>32 Gb</td><td>4 GB de RAM</td></tr>
+    <tr><td>64 Gb</td><td>8 GB de RAM</td></tr>
+    <tr><td>128 Gb</td><td>16 GB de RAM</td></tr>
+    <tr><td>16 Gb × 2 (DDP)</td><td>32 Gb total = 4 GB</td></tr>
+    <tr><td>16 Gb × 4 (QDP)</td><td>64 Gb total = 8 GB</td></tr>
+  </tbody>
+</table>
+
+<div class="callout warn">
+  <strong>Cuidado com Gb minúsculo vs GB maiúsculo:</strong>
+  <code>Gb</code> = Gigabit (memória, 1 Gb = 128 MB).
+  <code>GB</code> = Gigabyte (storage, 1 GB = 1024 MB).
+  Datasheets de RAM usam Gb; de storage, GB. Confundir os dois é o erro mais comum.
+</div>
+
+<!-- ========================================================== -->
+<h2 id="sem-datasheet">9. Sem datasheet — descobrir no próprio device</h2>
+
+<p>
+  Se você tem o device em mãos mas não tem datasheet, dá para descobrir tudo
+  via shell. Conecte por <code>adb</code> com o device em modo desenvolvedor:
+</p>
+
+<h4>RAM total</h4>
+<pre><code>adb shell cat /proc/meminfo | head -1
+# MemTotal:        3893632 kB
+# 3893632 / 1024 / 1024 ≈ 4 GB → arredondar para o próximo valor "comercial" (4 GB)</code></pre>
+
+<h4>Tipo de LPDDR</h4>
+<pre><code>adb shell getprop ro.boot.ddr_type
+adb shell getprop ro.boot.dram_type
+adb shell getprop vendor.boot.ddr_type
+# Resposta típica: "LPDDR4X", "LPDDR5", "LPDDR3"</code></pre>
+
+<h4>Storage — capacidade e versão</h4>
+<pre><code># UFS:
+adb shell cat /sys/class/scsi_host/host*/proc_name
+adb shell cat /sys/class/scsi_device/*/device/vendor /sys/class/scsi_device/*/device/model
+adb shell cat /sys/class/scsi_device/*/device/rev   # versao UFS
+
+# eMMC:
+adb shell cat /sys/block/mmcblk*/device/type
+adb shell cat /sys/block/mmcblk*/device/cid    # CID com manufacturer e modelo
+adb shell cat /sys/block/mmcblk*/device/csd    # contem version
+adb shell cat /sys/block/mmcblk*/device/ext_csd # detalhado (so root)</code></pre>
+
+<h4>Tamanho de storage</h4>
+<pre><code>adb shell df -h /data
+adb shell blockdev --getsize64 /dev/block/mmcblk0    # bytes totais</code></pre>
+
+<!-- ========================================================== -->
+<h2 id="executar">10. Executar um teste</h2>
+
+<ol>
+  <li>Na tela inicial, toque no device cadastrado.</li>
+  <li>Escolha:
+    <ul>
+      <li><strong>Factory</strong> — quick RAM + storage. Use na linha de produção.</li>
+      <li><strong>Deep RAM</strong> — só RAM, vários loops. Use em bancada/RMA.</li>
+    </ul>
+  </li>
+  <li>Toque "Iniciar". A tela mostra:
+    <ul>
+      <li><strong>Aba "Status"</strong> — cards das seções com PASS / RUNNING / FAIL.</li>
+      <li><strong>Aba "Log"</strong> — saída completa do script em tempo real.</li>
+    </ul>
+  </li>
+  <li>No fim, o app salva o relatório em <code>/sdcard/MemoryTest/</code> (ou no
+    <code>filesDir</code> interno se não tiver permissão), e a execução fica
+    registrada no histórico.</li>
+</ol>
+
+<h3>Lendo o resultado</h3>
+<table>
+  <thead><tr><th>Status</th><th>Significado</th></tr></thead>
+  <tbody>
+    <tr><td><strong>PASS</strong></td><td>Todas as seções passaram. Device aprovado.</td></tr>
+    <tr><td><strong>FAIL</strong></td><td>Pelo menos uma seção falhou. Ver justificativa no log.</td></tr>
+    <tr><td><strong>WARN</strong></td><td>Algo está fora do ideal mas não é bloqueante (ex: <em>life_time</em> alto).</td></tr>
+    <tr><td><strong>SKIP</strong></td><td>Seção pulada por falta de pré-requisito (ex: storage sem espaço livre).</td></tr>
+  </tbody>
+</table>
+
+<!-- ========================================================== -->
+<h2 id="glossario">11. Glossário</h2>
+
+<details>
+  <summary><strong>eMMC</strong> (embedded MultiMediaCard)</summary>
+  <p>Chip de NAND flash + controlador embarcado, soldado na placa do device. Sucessor do MMC. Tem versões 4.5, 5.0 e 5.1, com velocidades crescentes (HS200, HS400). Padrão JEDEC.</p>
+</details>
+
+<details>
+  <summary><strong>UFS</strong> (Universal Flash Storage)</summary>
+  <p>Sucessor do eMMC, com interface serial full-duplex (comando e dado simultâneos). Significativamente mais rápido. Versões principais: 2.1, 3.1, 4.0. Padrão JEDEC.</p>
+</details>
+
+<details>
+  <summary><strong>JEDEC</strong></summary>
+  <p>Organização de padronização da indústria de semicondutores. Define oficialmente as specs de eMMC, UFS, LPDDR.</p>
+</details>
+
+<details>
+  <summary><strong>NAND flash</strong></summary>
+  <p>Tipo de memória não-volátil usado em todo storage de smartphone. Tem ciclos de escrita finitos (<em>P/E cycles</em>). O controlador eMMC/UFS faz <em>wear leveling</em> e <em>bad block management</em> para esticar a vida útil.</p>
+</details>
+
+<details>
+  <summary><strong>LPDDR</strong> (Low-Power Double Data Rate)</summary>
+  <p>Família de RAM dinâmica para mobile. LPDDR3, 4, 4X, 5, 5X. Cada geração ~2× mais rápida e mais eficiente que a anterior.</p>
+</details>
+
+<details>
+  <summary><strong>memtester</strong></summary>
+  <p>Programa Linux que aloca uma região de RAM e roda padrões de teste para detectar células defeituosas. Em uso desde os anos 90, agora portado para Android.</p>
+</details>
+
+<details>
+  <summary><strong>dd</strong></summary>
+  <p>Utilitário Unix de cópia byte a byte. Usado no script para escrever um arquivo de tamanho conhecido e medir o tempo, calculando MB/s.</p>
+</details>
+
+<details>
+  <summary><strong>Sustained throughput</strong></summary>
+  <p>Velocidade que o storage consegue sustentar continuamente, depois do cache encher. Tipicamente 30–60% do pico anunciado pelo fabricante.</p>
+</details>
+
+<details>
+  <summary><strong>Life time / Pre-EOL</strong></summary>
+  <p>Contadores que o controlador de eMMC/UFS expõe via sysfs, indicando quanto da NAND já foi gasta. Em chip novo deve ser <code>0x01</code> (0–10% gasto). Valor alto em device de fábrica é red flag.</p>
+</details>
+
+<details>
+  <summary><strong>WriteBooster (UFS 3.1+)</strong></summary>
+  <p>Cache SLC dentro do próprio UFS. Aceita escritas em alta velocidade, depois move para a NAND TLC. Para o teste de fábrica, isso pode mascarar performance real — daí o tamanho de teste maior em UFS 3.1+.</p>
+</details>
+
+<details>
+  <summary><strong>SLC / TLC / QLC</strong></summary>
+  <p>Quantos bits cabem por célula NAND. SLC = 1 bit (mais rápido, mais durável, mais caro). TLC = 3 bits (padrão moderno). QLC = 4 bits (mais barato, menos durável). pSLC = TLC operando em modo SLC para ganhar durabilidade.</p>
+</details>
+
+<details>
+  <summary><strong>Snapshot</strong> (no contexto do app)</summary>
+  <p>Os valores aplicados ao device no momento do cadastro são "fotografados" e salvos no banco. Mudanças posteriores nos presets do app <strong>não</strong> retroagem para devices já cadastrados — protege contra surpresa em produção.</p>
+</details>
+
+<!-- ========================================================== -->
+<h2 id="faq">12. FAQ — perguntas comuns</h2>
+
+<details>
+  <summary><strong>Por que existe dropdown de RAM e Storage Class? Não dá para detectar automático?</strong></summary>
+  <p>
+    Daria, parcialmente — via <code>/proc/meminfo</code> para RAM e <code>sysfs</code>
+    para storage. Mas detecção automática é frágil em vendor exótico, e em cenário
+    de fábrica preferimos confiar no que o operador <em>sabe</em> sobre o device
+    que está testando, não em adivinhação. A informação está no datasheet; o
+    operador apenas a confirma.
+  </p>
+</details>
+
+<details>
+  <summary><strong>Editei o preset (no código), mas devices já cadastrados não mudaram. É bug?</strong></summary>
+  <p>
+    Não. Os valores são salvos como snapshot no momento do cadastro. Para
+    repropagar, abra cada device, reselecione RAM/Storage Class, e salve.
+    Esse comportamento é proposital — evita surpresa em produção quando o
+    app é atualizado.
+  </p>
+</details>
+
+<details>
+  <summary><strong>Device falhou no teste de storage por 5 MB/s abaixo do limite. É chip ruim?</strong></summary>
+  <p>
+    Provavelmente não. 5 MB/s pode ser variação térmica, fragmentação do
+    <code>/data</code>, ou cache do kernel não totalmente limpo. Re-rode o
+    teste — se passar, é variação normal. Se falhar consistentemente em
+    múltiplas amostras, é um problema real (chip, controlador, ou solda).
+  </p>
+</details>
+
+<details>
+  <summary><strong>Por que limiares são "só" ~50% do nominal? Não deveriam ser ~80%?</strong></summary>
+  <p>
+    50% pega defeito real (NAND ruim, downgrade fraudulento) sem rejeitar
+    variação normal. 80% rejeitaria devices saudáveis em condições não-ideais
+    (térmica, fragmentação, sample variation), gerando muito falso-positivo
+    e custo de RMA desnecessário. Se a sua aplicação tem requisito mais alto
+    (datacenter, automotivo), edite manualmente.
+  </p>
+</details>
+
+<details>
+  <summary><strong>O memtester pode passar mesmo com RAM ruim?</strong></summary>
+  <p>
+    É raro mas possível. Memtester testa padrões clássicos; se o defeito for
+    em endereço/timing muito específico, pode escapar. Por isso o deep test
+    roda 3 voltas — repetição aumenta a chance de pegar defeito intermitente.
+    Se suspeitar de RAM marginal e quick passar, rode o deep.
+  </p>
+</details>
+
+<details>
+  <summary><strong>STORAGE_TEST_SIZE_MB muito grande está estourando o /data. O que fazer?</strong></summary>
+  <p>
+    O script verifica espaço livre antes de testar e marca SKIP se não couber.
+    Se está estourando mesmo assim, reduza <code>STORAGE_TEST_SIZE_MB</code> no
+    cadastro do device, ou libere espaço no <code>/data</code> (factory build
+    deveria ter <code>/data</code> quase vazio).
+  </p>
+</details>
+
+<details>
+  <summary><strong>Por que o teste exige root?</strong></summary>
+  <p>
+    Para ler <code>life_time</code> de UFS/eMMC (sysfs protegido), limpar
+    <code>drop_caches</code>, e algumas operações de medição precisas.
+    Em factory build (userdebug/eng) o root é fornecido por um daemon
+    nativo embarcado pelo AOSP via init.rc — o app comunica com ele via
+    socket Unix. Em build de usuário comum (user), não roda.
+  </p>
+</details>
+
+<details>
+  <summary><strong>Posso usar este app em produção (não-fábrica)?</strong></summary>
+  <p>
+    Não é o caso de uso. Em build de usuário comum, sem o daemon root, o app
+    não consegue rodar os testes — falha imediato. É uma ferramenta de fábrica
+    e bancada, não de campo.
+  </p>
+</details>
+
+<hr>
+
+<p style="color: var(--text-muted); font-size: 13px; text-align: center; margin-top: 64px;">
+  MemoryTest — Manual de uso. Este documento acompanha o APK e deve ser
+  distribuído junto com ele para fábrica e QA.
+</p>
+
+</main>
+</div>
+
+</body>
+</html>
