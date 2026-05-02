@@ -1,9 +1,8 @@
 # Anexe estas linhas ao file_contexts em:
 #   device/sprd/mpool/sepolicy/system/private/file_contexts
 #
-# O label do diretório /system_ext/etc/factory/ é deixado com o default da
-# partição (system_ext_file). O daemon é permissive, então acessa sem rule.
+# /data/vendor/memtest/ deixa o label default da partição (vendor_data_file).
+# Daemon é permissive, escreve lá em runtime sem bater em rule explícita.
 
 /system_ext/bin/memtest_daemon          u:object_r:memtest_daemon_exec:s0
 /dev/socket/memtest_daemon             u:object_r:memtest_daemon_socket:s0
-/data/vendor/memtest(/.*)?             u:object_r:memtest_daemon_data_file:s0

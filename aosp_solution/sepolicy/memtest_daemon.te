@@ -1,23 +1,28 @@
 # SELinux policy para o memtest_daemon (system_ext / coredomain)
 # Coloque em: device/sprd/mpool/sepolicy/system/private/memtest_daemon.te
 #
-# Versão minimalista: evita dependências de atributos partição-específicos
-# (system_ext_file_type, core_data_file_type) que falham quando o .te é
-# compilado em contextos como plat_policy_for_vendor.cil.
-# Tudo o que não está aqui é coberto por `permissive memtest_daemon` em runtime.
+# Versão minimalista — toda a lógica de acesso a arquivos/sockets/dirs é
+# coberta por `permissive memtest_daemon` em runtime. Mantemos só o
+# essencial pro init transitar pro domínio e permitir socket Unix.
+#
+# - system_file_type é o ÚNICO atributo de exclusão de neverallow
+#   universalmente declarado (em system/sepolicy/public/file.te). Por isso
+#   labelamos memtest_daemon_exec como system_file_type, mesmo que o
+#   binário fisicamente fique em /system_ext/bin/. SELinux usa o label
+#   atribuído pelo file_contexts, não o caminho do arquivo.
 
 type memtest_daemon, domain, coredomain;
-type memtest_daemon_exec, exec_type, file_type;
-type memtest_daemon_data_file, file_type, data_file_type;
+type memtest_daemon_exec, exec_type, system_file_type, file_type;
 type memtest_daemon_socket, file_type;
 
-# Domain transition a partir do init
+# Domain transition a partir do init (gera entrypoint allow)
 init_daemon_domain(memtest_daemon);
 
 # Permissive: ferramenta de fábrica, roda apenas em userdebug/eng.
+# Cobre toda a operação real do daemon (sysfs, /proc, /data, exec scripts).
 permissive memtest_daemon;
 
-# Capacidades — apenas as que passam no neverallow para coredomain
+# Capacidades — apenas as não bloqueadas por neverallow para coredomain
 allow memtest_daemon self:capability {
     sys_admin
     setuid
@@ -27,16 +32,10 @@ allow memtest_daemon self:capability {
     kill
 };
 
-# Socket Unix
-allow memtest_daemon memtest_daemon_socket:sock_file { create unlink };
+# Operações sobre o próprio socket Unix (bind/listen/accept são permitidas)
+# Não declaramos rules sobre memtest_daemon_socket:sock_file porque os
+# neverallows de domain.te:759 cobrem create/unlink — o init cria o socket
+# via memtest_daemon.rc, então o daemon não precisa criar.
 allow memtest_daemon self:unix_stream_socket {
     create bind listen accept read write getattr setopt
-};
-
-# Diretório de trabalho em /data/vendor/memtest
-allow memtest_daemon memtest_daemon_data_file:dir  {
-    create write add_name read open search getattr rmdir
-};
-allow memtest_daemon memtest_daemon_data_file:file {
-    create write open read getattr unlink
 };
