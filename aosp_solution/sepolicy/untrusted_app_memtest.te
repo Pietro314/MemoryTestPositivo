@@ -1,8 +1,23 @@
-# Permite que o APK (untrusted_app) conecte ao socket do daemon.
-# Como memtest_daemon agora é coredomain (não vendor), o neverallow
-# da linha 716 de domain.te NÃO se aplica.
+# Permite que o APK MemoryTest conecte ao socket do daemon.
+# Coloque em: device/sprd/mpool/sepolicy/system/private/untrusted_app_memtest.te
 #
-# Coloque em: device/<vendor>/<product>/sepolicy/private/untrusted_app_memtest.te
+# O APK pode rodar em diferentes domínios dependendo de onde está instalado
+# e como foi assinado:
+#   - /data/app/, /system/app/, /product/app/   → untrusted_app
+#   - /system/priv-app/, /product/priv-app/     → priv_app
+#   - assinado com chave platform               → platform_app (independente do path)
+#
+# Como memtest_daemon agora é coredomain (não vendor), o neverallow Treble
+# da linha 716 de domain.te NÃO se aplica para nenhum desses domínios.
 
+# untrusted_app — APK instalado normalmente
 allow untrusted_app memtest_daemon_socket:sock_file { write };
 allow untrusted_app memtest_daemon:unix_stream_socket connectto;
+
+# platform_app — APK assinado com a chave platform (nosso caso atual)
+allow platform_app memtest_daemon_socket:sock_file { write };
+allow platform_app memtest_daemon:unix_stream_socket connectto;
+
+# priv_app — APK em /system/priv-app/ ou /product/priv-app/ sem assinatura platform
+allow priv_app memtest_daemon_socket:sock_file { write };
+allow priv_app memtest_daemon:unix_stream_socket connectto;
