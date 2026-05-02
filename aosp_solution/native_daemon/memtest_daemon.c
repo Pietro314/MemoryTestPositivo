@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -293,23 +294,56 @@ int main(void) {
     sa.sa_flags = SA_NOCLDWAIT;
     sigaction(SIGCHLD, &sa, NULL);
 
-    int server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (server_fd < 0) {
-        fprintf(stderr, "memtest_daemon: socket() falhou: %s\n", strerror(errno));
-        return 1;
+    /* Tenta primeiro usar o socket criado pelo init (caminho canonical
+     * Android). O init passa o fd via env ANDROID_SOCKET_<name> e cria
+     * o socket com a permissao e seclabel certos (do .rc + file_contexts).
+     *
+     * Se nao houver env (ex: rodando manualmente via shell pra debug),
+     * cria o socket nos mesmos moldes — mas faz chmod(0666) explicito
+     * pra garantir que apps consigam escrever (caso contrario fica 0700
+     * por causa do umask herdado do init). */
+    int server_fd = -1;
+    {
+        char env_key[64];
+        snprintf(env_key, sizeof(env_key), "ANDROID_SOCKET_%s", SOCKET_NAME);
+        const char *fd_str = getenv(env_key);
+        if (fd_str && *fd_str) {
+            char *end = NULL;
+            long fd = strtol(fd_str, &end, 10);
+            if (end != fd_str && fd >= 0 && fd < 1024) {
+                server_fd = (int)fd;
+                fprintf(stderr, "memtest_daemon: usando socket criado por init (fd=%d)\n", server_fd);
+            }
+        }
     }
 
-    struct sockaddr_un addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    snprintf(addr.sun_path, sizeof(addr.sun_path), "/dev/socket/%s", SOCKET_NAME);
+    if (server_fd < 0) {
+        fprintf(stderr, "memtest_daemon: env ANDROID_SOCKET_%s nao encontrada — criando socket manualmente\n", SOCKET_NAME);
+        server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (server_fd < 0) {
+            fprintf(stderr, "memtest_daemon: socket() falhou: %s\n", strerror(errno));
+            return 1;
+        }
 
-    unlink(addr.sun_path);
+        struct sockaddr_un addr;
+        memset(&addr, 0, sizeof(addr));
+        addr.sun_family = AF_UNIX;
+        snprintf(addr.sun_path, sizeof(addr.sun_path), "/dev/socket/%s", SOCKET_NAME);
 
-    if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-        fprintf(stderr, "memtest_daemon: bind() falhou: %s\n", strerror(errno));
-        close(server_fd);
-        return 1;
+        unlink(addr.sun_path);
+
+        if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+            fprintf(stderr, "memtest_daemon: bind() falhou: %s\n", strerror(errno));
+            close(server_fd);
+            return 1;
+        }
+
+        /* Forca a permissao certa — sem isso, o socket criado por bind()
+         * herda o umask do init (ex: 0077) e fica 0700, impedindo apps
+         * de escreverem. */
+        if (chmod(addr.sun_path, 0666) < 0) {
+            fprintf(stderr, "memtest_daemon: chmod() falhou: %s\n", strerror(errno));
+        }
     }
 
     if (listen(server_fd, 4) < 0) {
