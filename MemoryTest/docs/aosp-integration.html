@@ -316,8 +316,8 @@
     <li><a href="#estrutura">Estrutura final</a></li>
     <li><a href="#passo-1">Copiar daemon e scripts</a></li>
     <li><a href="#passo-2">Copiar policies SELinux</a></li>
-    <li><a href="#passo-3">Registrar sepolicy do vendor</a></li>
-    <li><a href="#passo-4">Editar device.mk</a></li>
+    <li><a href="#passo-3">Wire da sepolicy (SYSTEM_EXT)</a></li>
+    <li><a href="#passo-4">PRODUCT_PACKAGES</a></li>
     <li><a href="#passo-5">Build</a></li>
     <li><a href="#passo-6">Flashear</a></li>
     <li><a href="#passo-7">Verificar pós-boot</a></li>
@@ -331,11 +331,11 @@
 
 <header class="cover">
   <h1>Integração AOSP — MemoryTest</h1>
-  <p class="subtitle">Guia passo a passo para portar o daemon e scripts ao seu device</p>
+  <p class="subtitle">Guia passo a passo — daemon como <code>system_ext</code> / <code>coredomain</code></p>
   <div class="meta">
-    <span>Versão do documento: 1.0</span>
+    <span>Versão do documento: 2.0</span>
     <span>Público: engenheiros de plataforma / AOSP</span>
-    <span>Pré-requisito: árvore AOSP buildable do device alvo</span>
+    <span>Pré-requisito: árvore AOSP buildable, build userdebug/eng</span>
   </div>
 </header>
 
@@ -346,102 +346,146 @@
   O APK <strong>MemoryTest</strong> roda no UID de aplicativo comum
   (<code>untrusted_app</code>) e não tem acesso ao <code>su</code>. Os scripts
   de teste, porém, precisam de root para ler <code>life_time</code> de UFS,
-  escrever em <code>/proc/sys/vm/drop_caches</code>, etc.
+  escrever em <code>/proc/sys/vm/drop_caches</code>, ler <code>/sys</code>, etc.
 </p>
 
 <p>
-  A solução é um <strong>daemon nativo</strong> embarcado na partição
-  <code>/vendor/</code> que inicia como root via <code>init.rc</code>, abre um
-  socket Unix, recebe comandos do APK, e exec os scripts com as variáveis de
-  ambiente do <em>device profile</em>.
+  A solução é um <strong>daemon nativo</strong> que inicia como root via
+  <code>init.rc</code>, abre um socket Unix em <code>/dev/socket/memtest_daemon</code>,
+  recebe comandos do APK, e exec os scripts com as variáveis de ambiente do
+  <em>device profile</em>.
 </p>
 
 <div class="arch">
-APK (UID app, sem root)
+APK (untrusted_app, sem root)
         │  socket Unix /dev/socket/memtest_daemon
         ▼
-memtest_daemon (root, daemon nativo)
+memtest_daemon (root, coredomain, permissive)
         │  fork + setenv() + exec
         ▼
-/system/bin/sh full_memtest.sh
+/system/bin/sh /system_ext/etc/factory/full_memtest.sh
 </div>
 
-<p>
-  O APK nunca toca em arquivos de sistema diretamente. Toda ação privilegiada
-  passa pelo daemon, que valida e sanitiza tudo antes de executar.
-</p>
+<h3>1.1. Onde fica e por quê</h3>
+
+<table>
+  <thead><tr><th>Componente</th><th>Partição</th><th>Domínio SELinux</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Daemon (<code>memtest_daemon</code>)</td>
+      <td><code>/system_ext/bin/</code></td>
+      <td><code>memtest_daemon</code> (coredomain, permissive)</td>
+    </tr>
+    <tr>
+      <td>Scripts</td>
+      <td><code>/system_ext/etc/factory/</code></td>
+      <td>label default da partição</td>
+    </tr>
+    <tr>
+      <td>Workdir runtime</td>
+      <td><code>/data/vendor/memtest/</code></td>
+      <td>label default (vendor_data_file)</td>
+    </tr>
+    <tr>
+      <td>APK</td>
+      <td><code>/product/app/</code> (ou <code>/system/app/</code>)</td>
+      <td><code>untrusted_app</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout info">
+  <strong>Por que <code>system_ext</code> e não <code>vendor</code>?</strong>
+  Em devices Treble (Android 10+), o AOSP tem um <em>neverallow</em>
+  (<code>system/sepolicy/public/domain.te:716</code>) que bloqueia qualquer
+  app conectar em sockets Unix de <strong>vendor domains</strong>. Foi a
+  primeira tentativa e quebrou o build. Movendo o daemon para
+  <code>system_ext</code> (que é parte de <code>coredomain</code>), apps e
+  daemon ficam do mesmo lado da separação core/vendor — a regra não dispara.
+</div>
+
+<div class="callout info">
+  <strong>Por que <code>permissive memtest_daemon</code>?</strong>
+  O daemon precisa fazer várias operações privilegiadas (acessar
+  <code>/sys/class/scsi_device/</code>, escrever em
+  <code>drop_caches</code>, exec de shell, escrever logs em <code>/data</code>).
+  Cada uma dessas combinações de domínio + tipo + permissão bate em algum
+  <em>neverallow</em> do AOSP base se for expressa como <code>allow</code>
+  explícito. Como a ferramenta só roda em <code>userdebug</code>/<code>eng</code>
+  (controlado pelo <code>init.rc</code>: <code>on property:ro.debuggable=1</code>),
+  declarar o domínio como <code>permissive</code> é a saída pragmática
+  — o SELinux loga as violações em <code>dmesg</code> mas não bloqueia.
+</div>
 
 <!-- ========================================================== -->
 <h2 id="prereq">2. Pré-requisitos</h2>
 
 <ul class="checklist">
-  <li><strong>Árvore AOSP</strong> já clonada e capaz de buildar para o device alvo (ex: <code>~/aosp/</code>).</li>
-  <li><strong>Build environment</strong> funcional: <code>source build/envsetup.sh</code> e <code>lunch &lt;target&gt;</code> sem erro.</li>
-  <li><strong>Permissão de modificar</strong> a config do device. Tipicamente em <code>device/&lt;vendor&gt;/&lt;product&gt;/</code> ou <code>vendor/&lt;vendor&gt;/&lt;product&gt;/</code>.</li>
-  <li><strong>Build do tipo <code>userdebug</code> ou <code>eng</code></strong> — o init.rc autoinicia o daemon condicionado a <code>ro.debuggable=1</code>.</li>
-  <li><strong>Pacote <code>memtester</code></strong> precisa estar disponível na imagem (ver troubleshooting).</li>
+  <li><strong>Árvore AOSP</strong> clonada e capaz de buildar para o device alvo.</li>
+  <li><strong>Build environment</strong> funcional: <code>source build/envsetup.sh</code> e <code>lunch &lt;target&gt;</code>.</li>
+  <li><strong>Build do tipo <code>userdebug</code> ou <code>eng</code></strong> — o daemon só inicia se <code>ro.debuggable=1</code>.</li>
+  <li><strong>Pacote <code>memtester</code></strong> precisa estar disponível na imagem (vide troubleshooting).</li>
+  <li><strong>Algum diretório referenciado por <code>SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS</code></strong> (ou criar um novo).</li>
 </ul>
 
-<h3>2.1. Como descobrir seu <code>&lt;vendor&gt;</code> e <code>&lt;product&gt;</code></h3>
-
-<p>Dentro da árvore AOSP, depois do <code>lunch</code>:</p>
-
-<pre><code>echo $TARGET_DEVICE     # ex: aosp_arm64
-echo $TARGET_PRODUCT    # ex: aosp_arm64
-ls -d device/*/$TARGET_DEVICE 2>/dev/null
-# ex: device/google/aosp_arm64</code></pre>
+<h3>2.1. Convenções deste guia</h3>
 
 <div class="callout info">
-  <strong>Convenção neste guia:</strong>
-  <code>&lt;aosp&gt;</code> = raiz da árvore AOSP, <code>&lt;vendor&gt;/&lt;product&gt;</code>
-  = caminho do seu device. Substitua pelos valores reais antes de executar
-  qualquer comando. Onde aparecer <span class="placeholder">&lt;texto&gt;</span>
-  em destaque amarelo, é placeholder — substitua.
+  <code>&lt;aosp&gt;</code> = raiz da árvore AOSP do seu device.
+  <code>&lt;vendor&gt;/&lt;product&gt;</code> = caminho do device dentro de
+  <code>device/</code>. Substitua pelos valores reais antes de executar.
+  Onde aparecer <span class="placeholder">&lt;texto&gt;</span> em destaque
+  amarelo, é placeholder.
 </div>
 
 <!-- ========================================================== -->
 <h2 id="estrutura">3. Estrutura final</h2>
 
-<p>Tudo que vamos colocar fica concentrado em dois lugares dentro do AOSP:</p>
+<p>Tudo que vamos colocar fica concentrado em três lugares dentro do AOSP:</p>
 
-<div class="tree">&lt;aosp&gt;/device/&lt;vendor&gt;/&lt;product&gt;/
-├── memtest_daemon/                      ← criar
-│   ├── Android.bp
-│   ├── memtest_daemon.c
-│   ├── memtest_daemon.rc
-│   └── scripts/
-│       ├── full_memtest.sh
-│       └── ram_diagnostic_deep_verbose_root_exec.sh
-└── sepolicy/                            ← pode já existir
-    └── vendor/
-        ├── memtest_daemon.te            ← criar
-        └── untrusted_app_memtest.te     ← criar</div>
+<div class="tree">&lt;aosp&gt;/
+├── device/&lt;vendor&gt;/&lt;product&gt;/
+│   ├── module/system_ext/memtest_daemon/    ← criar
+│   │   ├── Android.bp
+│   │   ├── memtest_daemon.c
+│   │   ├── memtest_daemon.rc
+│   │   └── scripts/
+│   │       ├── full_memtest.sh
+│   │       └── ram_diagnostic_deep_verbose_root_exec.sh
+│   └── sepolicy/system/private/             ← já deve existir
+│       ├── memtest_daemon.te                ← criar
+│       ├── untrusted_app_memtest.te         ← criar
+│       └── file_contexts                    ← editar (anexar 2 linhas)
+└── (algum mk em module/system_ext/app/)
+    └── main.mk                              ← editar (PRODUCT_PACKAGES_DEBUG)</div>
 
-<p>E dois arquivos existentes que vamos <strong>editar</strong> (não criar):</p>
-
-<ul>
-  <li><code>&lt;aosp&gt;/device/&lt;vendor&gt;/&lt;product&gt;/sepolicy/vendor/file_contexts</code> — anexar 3 linhas</li>
-  <li><code>&lt;aosp&gt;/device/&lt;vendor&gt;/&lt;product&gt;/device.mk</code> — anexar 3 entradas em <code>PRODUCT_PACKAGES</code></li>
-</ul>
+<div class="callout warn">
+  <strong>Caminhos exatos variam por OEM.</strong>
+  Em árvores SPRD/Spreadtrum (mpool), <code>SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS</code>
+  já aponta para <code>$(MPOOL)/sepolicy/system/private</code> (declarado em
+  <code>device/sprd/mpool/module/generic/main.mk</code>). Outros OEMs podem ter
+  um caminho diferente — confira com:
+  <pre style="margin-top:8px"><code>grep -rn "SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS" device/&lt;vendor&gt;/ vendor/&lt;vendor&gt;/ 2>/dev/null</code></pre>
+</div>
 
 <!-- ========================================================== -->
 <div class="step" data-step="PASSO 1">
 <h2 id="passo-1">Copiar o daemon nativo e scripts</h2>
 
-<h3>1.1. Criar o diretório</h3>
+<h3>1.1. Criar o diretório do módulo</h3>
 
-<pre><code>mkdir -p &lt;aosp&gt;/device/&lt;vendor&gt;/&lt;product&gt;/memtest_daemon/scripts</code></pre>
+<pre><code>mkdir -p &lt;aosp&gt;/device/&lt;vendor&gt;/&lt;product&gt;/module/system_ext/memtest_daemon/scripts</code></pre>
 
 <h3>1.2. Copiar os arquivos</h3>
 
 <pre><code>SRC=&lt;onde-voce-baixou&gt;/aosp_solution
-DST=&lt;aosp&gt;/device/&lt;vendor&gt;/&lt;product&gt;/memtest_daemon
+DST=&lt;aosp&gt;/device/&lt;vendor&gt;/&lt;product&gt;/module/system_ext/memtest_daemon
 
-cp $SRC/native_daemon/memtest_daemon.c   $DST/
-cp $SRC/native_daemon/memtest_daemon.rc  $DST/
-cp $SRC/native_daemon/Android.bp         $DST/
-cp $SRC/native_daemon/scripts/full_memtest.sh                       $DST/scripts/
-cp $SRC/native_daemon/scripts/ram_diagnostic_deep_verbose_root_exec.sh  $DST/scripts/</code></pre>
+cp $SRC/native_daemon/memtest_daemon.c                                 $DST/
+cp $SRC/native_daemon/memtest_daemon.rc                                $DST/
+cp $SRC/native_daemon/Android.bp                                       $DST/
+cp $SRC/native_daemon/scripts/full_memtest.sh                          $DST/scripts/
+cp $SRC/native_daemon/scripts/ram_diagnostic_deep_verbose_root_exec.sh $DST/scripts/</code></pre>
 
 <h3>1.3. O que cada arquivo faz</h3>
 
@@ -453,51 +497,50 @@ cp $SRC/native_daemon/scripts/ram_diagnostic_deep_verbose_root_exec.sh  $DST/scr
     <tr>
       <td><code>memtest_daemon.c</code></td>
       <td>Código fonte do daemon. Compila para um binário ELF nativo.</td>
-      <td><code>/vendor/bin/memtest_daemon</code></td>
+      <td><code>/system_ext/bin/memtest_daemon</code></td>
     </tr>
     <tr>
       <td><code>memtest_daemon.rc</code></td>
-      <td>Define o serviço <code>init</code> — usuário root, socket, seclabel, autostart.</td>
-      <td>Embutido no <code>init</code> de <code>/vendor/etc/init/</code></td>
+      <td>Define o serviço <code>init</code> — usuário root, socket, seclabel, autostart em userdebug.</td>
+      <td>Embutido no init de <code>/system_ext/etc/init/</code></td>
     </tr>
     <tr>
       <td><code>Android.bp</code></td>
-      <td>Build script do Soong. Declara <code>cc_binary</code> (daemon) + <code>prebuilt_etc</code> (scripts).</td>
+      <td>Build script do Soong. Declara <code>cc_binary</code> + 2 <code>prebuilt_etc</code>, todos com <code>system_ext_specific: true</code>.</td>
       <td>— (só usado durante build)</td>
     </tr>
     <tr>
       <td><code>scripts/full_memtest.sh</code></td>
-      <td>Teste fábrica (RAM rápido + storage).</td>
-      <td><code>/vendor/etc/factory/full_memtest.sh</code></td>
+      <td>Teste de fábrica (RAM rápido + storage). WORKDIR em <code>/data/vendor/memtest/</code>.</td>
+      <td><code>/system_ext/etc/factory/full_memtest.sh</code></td>
     </tr>
     <tr>
       <td><code>scripts/ram_diagnostic_deep_verbose_root_exec.sh</code></td>
       <td>Teste profundo de RAM.</td>
-      <td><code>/vendor/etc/factory/ram_diagnostic_deep_verbose_root_exec.sh</code></td>
+      <td><code>/system_ext/etc/factory/ram_diagnostic_deep_verbose_root_exec.sh</code></td>
     </tr>
   </tbody>
 </table>
-
-<div class="callout info">
-  <strong>Por que vai para <code>/vendor/</code> e não <code>/system/</code>?</strong>
-  O <code>Android.bp</code> declara <code>vendor: true</code> em todos os módulos —
-  em devices com Treble, vendor é onde fica código específico de hardware. Mantém
-  separação limpa entre AOSP genérico e customização do produto.
-</div>
 </div>
 
 <!-- ========================================================== -->
 <div class="step" data-step="PASSO 2">
 <h2 id="passo-2">Copiar as policies SELinux</h2>
 
-<h3>2.1. Criar o diretório</h3>
+<h3>2.1. Localizar o diretório system_ext private</h3>
 
-<pre><code>mkdir -p &lt;aosp&gt;/device/&lt;vendor&gt;/&lt;product&gt;/sepolicy/vendor</code></pre>
+<pre><code>grep -rn "SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS" device/ vendor/ 2>/dev/null</code></pre>
+
+<p>Ex. SPRD mpool:</p>
+<pre><code>device/sprd/mpool/module/generic/main.mk:2:
+SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS := $(MPOOL)/sepolicy/system/private $(SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS)</code></pre>
+
+<p>O diretório é <code>device/sprd/mpool/sepolicy/system/private/</code>.</p>
 
 <h3>2.2. Copiar os arquivos <code>.te</code></h3>
 
 <pre><code>SRC=&lt;onde-voce-baixou&gt;/aosp_solution
-DST_SEPOL=&lt;aosp&gt;/device/&lt;vendor&gt;/&lt;product&gt;/sepolicy/vendor
+DST_SEPOL=&lt;aosp&gt;/device/&lt;vendor&gt;/&lt;product&gt;/sepolicy/system/private
 
 cp $SRC/sepolicy/memtest_daemon.te         $DST_SEPOL/
 cp $SRC/sepolicy/untrusted_app_memtest.te  $DST_SEPOL/</code></pre>
@@ -509,119 +552,107 @@ cp $SRC/sepolicy/untrusted_app_memtest.te  $DST_SEPOL/</code></pre>
   <tbody>
     <tr>
       <td><code>memtest_daemon.te</code></td>
-      <td>Define o domínio SELinux <code>memtest_daemon</code> e dá a ele as permissões para ler <code>/sys</code>, <code>/proc/meminfo</code>, escrever em <code>/proc/sys/vm/drop_caches</code>, abrir socket Unix, fork+exec do shell, etc.</td>
+      <td>Define o domínio SELinux <code>memtest_daemon</code> como <code>coredomain</code> + <code>permissive</code>. Declara o tipo <code>memtest_daemon_exec</code> com atributo <code>system_file_type</code> para passar no neverallow de entrypoint. Mantém só rules essenciais (capabilities, unix_stream_socket).</td>
     </tr>
     <tr>
       <td><code>untrusted_app_memtest.te</code></td>
-      <td>Permite que o APK (que roda no domínio <code>untrusted_app</code>) escreva e conecte no socket <code>/dev/socket/memtest_daemon</code>.</td>
+      <td>Permite que o APK (que roda em <code>untrusted_app</code>) escreva e conecte no socket <code>/dev/socket/memtest_daemon</code>.</td>
     </tr>
   </tbody>
 </table>
 
-<div class="callout warn">
-  <strong>Sem essas policies, nada funciona.</strong>
-  Mesmo o daemon sendo root, o kernel <strong>bloqueia</strong> todas as ações
-  via SELinux. Em modo <em>enforcing</em>, a policy é a segunda camada de
-  permissão, independente do UID.
+<h3>2.4. Anexar linhas ao <code>file_contexts</code></h3>
+
+<p>Não copia, <strong>anexa</strong>. O <code>file_contexts</code> existente do device tem regras do OEM — apenas adicionamos no fim.</p>
+
+<pre><code>cat $SRC/sepolicy/file_contexts \
+    &gt;&gt; &lt;aosp&gt;/device/&lt;vendor&gt;/&lt;product&gt;/sepolicy/system/private/file_contexts</code></pre>
+
+<p>As 2 linhas que serão acrescentadas:</p>
+
+<pre><code>/system_ext/bin/memtest_daemon          u:object_r:memtest_daemon_exec:s0
+/dev/socket/memtest_daemon             u:object_r:memtest_daemon_socket:s0</code></pre>
+
+<div class="callout info">
+  <strong>Por que apenas 2 linhas?</strong>
+  Os scripts em <code>/system_ext/etc/factory/</code> e o workdir em
+  <code>/data/vendor/memtest/</code> não precisam de label custom — herdam o
+  default da partição. Como o daemon é <code>permissive</code>, ele acessa
+  esses caminhos em runtime sem precisar de <code>allow</code> explícito.
 </div>
-
-<h3>2.4. Mesclar <code>file_contexts</code></h3>
-
-<p>
-  Este passo é <strong>diferente</strong>: não copia, <strong>anexa</strong>.
-  O arquivo <code>file_contexts</code> do seu device já existe e tem regras
-  antigas — apenas adicionamos linhas no fim.
-</p>
-
-<p>Veja se existe:</p>
-
-<pre><code>ls &lt;aosp&gt;/device/&lt;vendor&gt;/&lt;product&gt;/sepolicy/vendor/file_contexts</code></pre>
-
-<p><strong>Se existe</strong> → anexe:</p>
-
-<pre><code>cat &lt;onde-voce-baixou&gt;/aosp_solution/sepolicy/file_contexts \
-    &gt;&gt; &lt;aosp&gt;/device/&lt;vendor&gt;/&lt;product&gt;/sepolicy/vendor/file_contexts</code></pre>
-
-<p><strong>Se não existe</strong> → copie como está:</p>
-
-<pre><code>cp &lt;onde-voce-baixou&gt;/aosp_solution/sepolicy/file_contexts \
-   &lt;aosp&gt;/device/&lt;vendor&gt;/&lt;product&gt;/sepolicy/vendor/file_contexts</code></pre>
-
-<p>As 3 linhas que serão acrescentadas:</p>
-
-<pre><code>/vendor/bin/memtest_daemon           u:object_r:memtest_daemon_exec:s0
-/vendor/etc/factory(/.*)?            u:object_r:vendor_configs_file:s0
-/dev/socket/memtest_daemon           u:object_r:memtest_daemon_socket:s0</code></pre>
-
-<p>
-  Cada linha <strong>rotula um caminho</strong> com um label SELinux. Sem isso,
-  mesmo com policy permitindo o domínio, o kernel não sabe qual label aplicar
-  ao binário/socket/diretório.
-</p>
 </div>
 
 <!-- ========================================================== -->
 <div class="step" data-step="PASSO 3">
-<h2 id="passo-3">Registrar a sepolicy do vendor</h2>
+<h2 id="passo-3">Confirmar wire da sepolicy</h2>
 
 <p>
-  O AOSP precisa saber que esse diretório <code>sepolicy/vendor/</code> existe e
-  deve ser carregado durante o build.
+  Diferente de <code>BOARD_VENDOR_SEPOLICY_DIRS</code>, a maioria das árvores
+  OEM <strong>já tem</strong> <code>SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS</code> apontando
+  para a pasta onde colocamos os <code>.te</code>. Confira:
 </p>
 
-<h3>Opção A — <code>BoardConfig.mk</code> (preferida)</h3>
+<pre><code>grep -rn "SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS" device/&lt;vendor&gt;/ 2>/dev/null</code></pre>
 
-<p>Abra <code>&lt;aosp&gt;/device/&lt;vendor&gt;/&lt;product&gt;/BoardConfig.mk</code> e procure se já tem <code>BOARD_VENDOR_SEPOLICY_DIRS</code>:</p>
+<p><strong>Se aparecer alguma linha</strong> apontando pra pasta onde você copiou os <code>.te</code> → nada a fazer. ✅</p>
 
-<pre><code># Se já existe, adicione o caminho:
-BOARD_VENDOR_SEPOLICY_DIRS += device/&lt;vendor&gt;/&lt;product&gt;/sepolicy/vendor
+<p><strong>Se não aparecer</strong>, declare em algum <code>main.mk</code> da partição system_ext:</p>
 
-# Se não existe, crie:
-BOARD_VENDOR_SEPOLICY_DIRS := device/&lt;vendor&gt;/&lt;product&gt;/sepolicy/vendor</code></pre>
+<pre><code># Em device/&lt;vendor&gt;/&lt;product&gt;/module/system_ext/main.mk (ou similar)
 
-<div class="callout info">
-  <strong>Variantes em árvores antigas:</strong>
-  Use <code>BOARD_PLAT_PRIVATE_SEPOLICY_DIR</code> ou <code>BOARD_SEPOLICY_DIRS</code>
-  em vez de <code>BOARD_VENDOR_SEPOLICY_DIRS</code> em árvores AOSP pre-Treble.
-  No Android 8+ (moderno) é o <code>_VENDOR_</code>.
+SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS += device/&lt;vendor&gt;/&lt;product&gt;/sepolicy/system/private</code></pre>
+
+<div class="callout warn">
+  <strong>Não use <code>BOARD_VENDOR_SEPOLICY_DIRS</code></strong> para essa policy
+  — vai falhar com erro <em>"unknown type coredomain"</em>, porque o compilador
+  vendor não conhece tipos de coredomain.
 </div>
-
-<h3>Opção B — já existe um diretório de sepolicy de vendor</h3>
-
-<p>
-  Se o device já tem <code>sepolicy/</code> carregado em algum
-  <code>BoardConfig.mk</code>, basta colocar nossos <code>.te</code> lá e
-  mesclar o <code>file_contexts</code>. Não precisa adicionar mais nada.
-</p>
 </div>
 
 <!-- ========================================================== -->
 <div class="step" data-step="PASSO 4">
-<h2 id="passo-4">Editar o <code>device.mk</code></h2>
+<h2 id="passo-4">PRODUCT_PACKAGES — split entre system e system_ext</h2>
 
 <p>
-  O <code>device.mk</code> é o <em>shopping list</em> — diz ao build quais pacotes
-  devem ir na imagem.
+  Como nossos módulos têm <code>system_ext_specific: true</code>, eles devem
+  ser referenciados em um <code>.mk</code> de <strong>system_ext</strong>.
+  Mas o <code>memtester</code> (utilitário do AOSP) é system. Então
+  <em>split</em>:
 </p>
 
-<p>Abra <code>&lt;aosp&gt;/device/&lt;vendor&gt;/&lt;product&gt;/device.mk</code> e procure por uma linha existente como:</p>
+<h3>4.1. Em algum <code>.mk</code> de system</h3>
 
-<pre><code>PRODUCT_PACKAGES += \
-    libc \
-    libcutils \
-    ...</code></pre>
+<p>
+  Tipicamente <code>device/&lt;vendor&gt;/&lt;product&gt;/module/system/app/main.mk</code>
+  ou <code>device.mk</code>:
+</p>
 
-<p>Adicione no final dessa lista (ou em uma nova linha <code>PRODUCT_PACKAGES +=</code>):</p>
+<pre><code>PRODUCT_PACKAGES += memtester</code></pre>
 
-<pre><code>PRODUCT_PACKAGES += \
+<h3>4.2. Em algum <code>.mk</code> de system_ext</h3>
+
+<p>
+  Tipicamente <code>device/&lt;vendor&gt;/&lt;product&gt;/module/system_ext/app/main.mk</code>:
+</p>
+
+<pre><code># memtest factory tooling (userdebug only)
+PRODUCT_PACKAGES_DEBUG += \
     memtest_daemon \
     full_memtest_sh \
     ram_diagnostic_deep_verbose_root_exec_sh</code></pre>
 
-<div class="callout warn">
-  <strong>Se esquecer este passo</strong>, mesmo que o <code>Android.bp</code>
-  defina os módulos, eles <strong>não entram</strong> na imagem final. O build
-  passa sem erro mas no device não tem nada.
+<div class="callout info">
+  <strong>Por que <code>PRODUCT_PACKAGES_DEBUG</code>?</strong>
+  Esses módulos só fazem sentido em build <code>userdebug</code>/<code>eng</code>
+  (o init.rc só inicia o daemon se <code>ro.debuggable=1</code>). Usar
+  <code>PRODUCT_PACKAGES_DEBUG</code> garante que não vão pra imagem
+  <em>user</em> de produção.
+</div>
+
+<div class="callout bad">
+  <strong>Não duplique.</strong> Se você botar <code>memtest_daemon</code> nos
+  dois <code>.mk</code>, o <em>board check</em> do OEM vai reclamar que
+  módulo system_ext está em <code>.mk</code> de system (ou vice-versa).
 </div>
 </div>
 
@@ -633,50 +664,50 @@ BOARD_VENDOR_SEPOLICY_DIRS := device/&lt;vendor&gt;/&lt;product&gt;/sepolicy/ven
 
 <pre><code>cd &lt;aosp&gt;
 source build/envsetup.sh
-lunch &lt;seu_target&gt;      # ex: aosp_arm64-userdebug</code></pre>
+lunch &lt;seu_target_userdebug&gt;</code></pre>
 
-<h3>5.2. Build incremental (recomendado primeiro)</h3>
+<h3>5.2. Build incremental da sepolicy primeiro</h3>
 
-<p>Compila só nossos módulos para testar se o <code>Android.bp</code> e a sepolicy estão certos:</p>
+<pre><code>make selinux_policy -j$(nproc)</code></pre>
+
+<p>Erros típicos aqui:</p>
+<ul>
+  <li><strong>"attribute X is not declared"</strong> → algum tipo no <code>.te</code> referencia atributo só presente em uma partição. Use só <code>system_file_type</code> (universal).</li>
+  <li><strong>"neverallow violated"</strong> → uma <code>allow</code> rule bate em neverallow do AOSP base. Remova a rule e confie em <code>permissive</code>.</li>
+  <li><strong>"module already defined"</strong> → você tem cópias duplicadas do <code>Android.bp</code> em dois lugares.</li>
+</ul>
+
+<h3>5.3. Build dos módulos</h3>
 
 <pre><code>make memtest_daemon -j$(nproc)
 make full_memtest_sh ram_diagnostic_deep_verbose_root_exec_sh -j$(nproc)</code></pre>
 
-<p>Erros típicos aqui:</p>
-<ul>
-  <li><strong>"target not found"</strong> → o <code>device.mk</code> não está incluindo. Reconfere passo 4.</li>
-  <li><strong>"sepolicy compile failed"</strong> → erro de sintaxe no <code>.te</code>. Mensagem geralmente aponta a linha.</li>
-</ul>
-
-<h3>5.3. Build da imagem vendor</h3>
-
-<pre><code>make vendorimage -j$(nproc)</code></pre>
-
-<p>Ou imagem completa do device:</p>
+<h3>5.4. Build da imagem completa</h3>
 
 <pre><code>make -j$(nproc)</code></pre>
-
-<p>Demora bem mais. Necessário para flashear.</p>
 </div>
 
 <!-- ========================================================== -->
 <div class="step" data-step="PASSO 6">
 <h2 id="passo-6">Flashear no device</h2>
 
-<p>O caminho típico:</p>
+<p>O daemon e scripts vão pra partição <code>system_ext</code>. Em devices com partições separadas:</p>
 
 <pre><code>adb reboot bootloader
-fastboot flash vendor out/target/product/&lt;product&gt;/vendor.img
+fastboot flash system_ext out/target/product/&lt;product&gt;/system_ext.img
 fastboot reboot</code></pre>
 
-<p>Se você fez build completo:</p>
+<p>Em devices com system_ext mergeado dentro de system:</p>
 
-<pre><code>fastboot flashall -w     # CUIDADO: -w apaga /data</code></pre>
+<pre><code>fastboot flash system out/target/product/&lt;product&gt;/system.img</code></pre>
+
+<p>Ou, mais simples, fazer flash completo:</p>
+
+<pre><code>fastboot flashall</code></pre>
 
 <div class="callout bad">
   <strong>Cuidado com <code>-w</code>:</strong> a flag apaga toda a partição
-  <code>/data</code>. Use só se for flash de imagem nova/limpa. Para apenas
-  atualizar <code>vendor</code>, basta o <code>fastboot flash vendor</code>.
+  <code>/data</code>. Não use a menos que queira limpar os dados do device.
 </div>
 </div>
 
@@ -689,13 +720,16 @@ fastboot reboot</code></pre>
 <h3>7.1. Daemon está rodando?</h3>
 
 <pre><code>adb shell ps -A | grep memtest_daemon
-# memtest_daemon  root   1234  ... /vendor/bin/memtest_daemon</code></pre>
+# memtest_daemon  root  1234  ... /system_ext/bin/memtest_daemon</code></pre>
 
 <p>Se não aparecer:</p>
 
-<pre><code># Ver logs do init
+<pre><code># Logs do init
 adb shell dmesg | grep -i memtest
-adb logcat -d | grep -i memtest</code></pre>
+adb logcat -d | grep -i memtest
+
+# Tentar disparar manualmente
+adb shell setprop ctl.start memtest_daemon</code></pre>
 
 <h3>7.2. Socket existe?</h3>
 
@@ -706,36 +740,72 @@ adb logcat -d | grep -i memtest</code></pre>
 
 <h3>7.3. Scripts no lugar?</h3>
 
-<pre><code>adb shell ls -laZ /vendor/etc/factory/
-# -rw-r--r-- 1 root root  u:object_r:vendor_configs_file:s0 full_memtest.sh
-# -rw-r--r-- 1 root root  u:object_r:vendor_configs_file:s0 ram_diagnostic_deep_verbose_root_exec.sh</code></pre>
+<pre><code>adb shell ls -laZ /system_ext/etc/factory/
+# -rw-r--r-- 1 root root  ... full_memtest.sh
+# -rw-r--r-- 1 root root  ... ram_diagnostic_deep_verbose_root_exec.sh</code></pre>
 
 <h3>7.4. Binário com label certo?</h3>
 
-<pre><code>adb shell ls -laZ /vendor/bin/memtest_daemon
+<pre><code>adb shell ls -laZ /system_ext/bin/memtest_daemon
 # -rwxr-xr-x 1 root shell u:object_r:memtest_daemon_exec:s0 ...</code></pre>
 
-<h3>7.5. Teste manual via netcat</h3>
+<h3>7.5. Domínio é permissive?</h3>
+
+<pre><code>adb shell ps -AZ | grep memtest_daemon
+# u:r:memtest_daemon:s0  root  ...
+
+adb shell cat /sys/fs/selinux/policy 2>/dev/null \
+    | grep -ao 'permissive memtest_daemon' \
+    || echo "(domínio enforcing — verificar .te tem 'permissive memtest_daemon;')"</code></pre>
+
+<h3>7.6. Teste manual via netcat</h3>
 
 <pre><code>adb shell
 printf 'RUN full_memtest\nEXPECTED_RAM_GB=4\nMIN_WRITE_MBPS=50\nEND\n' \
     | nc -U /dev/socket/memtest_daemon</code></pre>
 
-<p>
-  Esperado: ver linhas do script saindo, terminando com <code>EXIT:0</code>.
-</p>
+<p>Esperado: linhas do script saindo, terminando com <code>EXIT:0</code>.</p>
 
-<div class="callout warn">
-  <strong>Se travar ou der erro</strong>, ver <code>dmesg</code> para denials de SELinux:
-  <pre style="margin-top:8px"><code>adb shell dmesg | grep -i avc
-# avc: denied { read } for ... scontext=u:r:memtest_daemon:s0 ...</code></pre>
-  Cada linha de denial indica uma permissão que falta no <code>.te</code>. Adicione e re-build.
-</div>
+<h3>7.7. Verificar AVC denials esperados (não fatais)</h3>
+
+<pre><code>adb shell dmesg | grep avc | grep memtest_daemon | tail -20</code></pre>
+
+<p>
+  Como o domínio é permissive, vão aparecer AVC denials (de
+  <code>shell_exec</code>, <code>vendor_data_file</code>, etc.) — eles são
+  apenas registrados, não bloqueiam. Em produção, isso seria limpo via
+  <code>audit2allow</code>; em factory tooling é tolerável.
+</p>
 </div>
 
 <!-- ========================================================== -->
 <div class="step" data-step="PASSO 8">
 <h2 id="passo-8">Instalar e testar o APK</h2>
+
+<h3>8.1. Onde o APK deve ficar</h3>
+
+<table>
+  <thead><tr><th>Local</th><th>Domínio resultante</th><th>Funciona com nossa policy?</th></tr></thead>
+  <tbody>
+    <tr><td><code>/data/app/</code> (instalado)</td><td><code>untrusted_app</code></td><td>✅ Sim</td></tr>
+    <tr><td><code>/system/app/</code></td><td><code>untrusted_app</code></td><td>✅ Sim</td></tr>
+    <tr><td><code>/product/app/</code></td><td><code>untrusted_app</code></td><td>✅ Sim</td></tr>
+    <tr><td><code>/system/priv-app/</code></td><td><code>priv_app</code></td><td>❌ Não — adicionar policy pra priv_app</td></tr>
+  </tbody>
+</table>
+
+<h3>8.2. APK como módulo do AOSP (recomendado)</h3>
+
+<p>No <code>Android.mk</code> ou <code>Android.bp</code> do APK, use:</p>
+
+<pre><code>LOCAL_PRODUCT_MODULE := true
+# NÃO use LOCAL_PRIVILEGED_MODULE := true</code></pre>
+
+<p>E adicione em algum <code>.mk</code> de product:</p>
+
+<pre><code>PRODUCT_PACKAGES += RamMemoryTest</code></pre>
+
+<h3>8.3. Build incremental do APK</h3>
 
 <pre><code>cd MemoryTest/MemoryTest
 ./gradlew assembleDebug
@@ -743,11 +813,11 @@ adb install app/build/outputs/apk/debug/app-debug.apk</code></pre>
 
 <p>
   Abra o app, cadastre um device, dispare um teste. Se o socket estiver bem
-  configurado, ele conecta e roda. Se der erro de "connection refused",
-  reconfira os passos 7.2 e 7.5.
+  configurado, ele conecta e roda. Se der "connection refused", reconfira os
+  passos 7.2 e 7.6.
 </p>
 
-<h3>Protocolo do daemon (referência)</h3>
+<h3>8.4. Protocolo do daemon (referência)</h3>
 
 <p>O APK abre o socket e envia:</p>
 
@@ -772,6 +842,37 @@ END\n</code></pre>
 <h2 id="troubleshooting">12. Troubleshooting — erros comuns</h2>
 
 <details>
+  <summary><strong>Erro de build: <code>'attribute X is not declared'</code></strong></summary>
+  <p>
+    Acontece quando o <code>.te</code> referencia um atributo (ex.
+    <code>system_ext_file_type</code>, <code>core_data_file_type</code>) que
+    não está disponível em algum dos contextos de compilação (plat,
+    plat_for_vendor, system_ext). A árvore SPRD recompila o mesmo
+    <code>.te</code> em múltiplos contextos.
+  </p>
+  <p>
+    <strong>Solução:</strong> use só <code>system_file_type</code> (declarado
+    em <code>system/sepolicy/public/file.te</code>, universalmente disponível).
+    Mesmo que o binário fique em <code>/system_ext/bin/</code>, o tipo pode ter
+    atributo <code>system_file_type</code> — SELinux usa o label do
+    <code>file_contexts</code>, não o caminho.
+  </p>
+</details>
+
+<details>
+  <summary><strong>Erro de build: <code>neverallow violated</code></strong></summary>
+  <p>
+    O AOSP base tem várias <em>neverallow</em> em <code>system/sepolicy/public/domain.te</code>
+    que bloqueiam combinações específicas. Comuns:
+  </p>
+  <ul>
+    <li><strong>line 716</strong> (Treble socket): app→vendor unix_stream_socket. Solução: daemon como <code>coredomain</code>, não vendor.</li>
+    <li><strong>line 759/783/798</strong> (sock_file/data_file ops): remova as <code>allow</code> rules; permissive cobre em runtime.</li>
+    <li><strong>line 945</strong> (entrypoint): tipo do exec precisa ter <code>system_file_type</code>.</li>
+  </ul>
+</details>
+
+<details>
   <summary><strong>Daemon não inicia no boot</strong></summary>
   <p>
     Causa típica: <code>ro.debuggable=0</code> (build <em>user</em>). O
@@ -784,37 +885,37 @@ END\n</code></pre>
 </details>
 
 <details>
-  <summary><strong>Permission denied no socket pelo APK</strong></summary>
-  <p>
-    Causa: a policy <code>untrusted_app_memtest.te</code> não foi carregada, ou
-    o device tem versão antiga do AOSP que usa <code>untrusted_app_all</code> em
-    vez de <code>untrusted_app</code>. Tente:
-  </p>
-  <pre><code>allow untrusted_app_all memtest_daemon_socket:sock_file write;
-allow untrusted_app_all memtest_daemon:unix_stream_socket connectto;</code></pre>
+  <summary><strong>"connection refused" do APK ao conectar no socket</strong></summary>
+  <p>Checagem em ordem:</p>
+  <ol>
+    <li>Daemon está rodando? <code>adb shell ps -A | grep memtest</code></li>
+    <li>Socket existe? <code>adb shell ls -laZ /dev/socket/memtest_daemon</code></li>
+    <li>Socket tem permissão? Deve ser <code>0666</code> (definido no <code>.rc</code>).</li>
+    <li>APK está em domínio <code>untrusted_app</code>? Não pode ser <code>priv_app</code>.</li>
+    <li>Policy <code>untrusted_app_memtest.te</code> aplicada?</li>
+  </ol>
 </details>
 
 <details>
-  <summary><strong><code>avc: denied</code> para alguma operação</strong></summary>
+  <summary><strong><code>avc: denied</code> mesmo com permissive</strong></summary>
   <p>
-    Adicione a regra correspondente em <code>memtest_daemon.te</code> e
-    re-build. Em desenvolvimento, você pode rodar em <strong>permissive</strong>
-    para descobrir tudo de uma vez:
+    Em modo <em>permissive</em> SELinux loga mas não bloqueia. Os denials são
+    informativos. Se uma operação aparenta falhar e tem AVC denial associado,
+    pode ser:
   </p>
-  <pre><code>adb shell setenforce 0    # SELinux permissive
-# rode o teste
-adb shell dmesg | grep avc | tee denials.log
-adb shell setenforce 1    # volta para enforcing</code></pre>
-  <p>Depois pegue todos os <code>denied</code> do log e gere as regras com <code>audit2allow</code>:</p>
-  <pre><code>cat denials.log | audit2allow -p out/target/product/&lt;product&gt;/sepolicy</code></pre>
-  <p>E adicione ao <code>.te</code>.</p>
+  <ul>
+    <li>O domínio NÃO é permissive (faltou <code>permissive memtest_daemon;</code> no <code>.te</code>) — confirme com <code>ps -AZ</code>.</li>
+    <li>O kernel está em modo enforcing global e algum filtro impede permissive — teste com <code>setenforce 0</code>.</li>
+    <li>A operação falha por outro motivo (DAC, kernel limit), não SELinux.</li>
+  </ul>
 </details>
 
 <details>
   <summary><strong>Script falha por falta de <code>memtester</code></strong></summary>
   <p>
     O <code>memtester</code> precisa estar embarcado na imagem. Em AOSP padrão
-    <strong>não vem por default</strong>. Adicione ao <code>device.mk</code>:
+    <strong>não vem por default</strong>. Adicione ao <code>.mk</code> de
+    <strong>system</strong> (não system_ext):
   </p>
   <pre><code>PRODUCT_PACKAGES += memtester</code></pre>
   <p>
@@ -825,60 +926,55 @@ adb shell setenforce 1    # volta para enforcing</code></pre>
 </details>
 
 <details>
-  <summary><strong>Daemon inicia mas socket não aparece</strong></summary>
+  <summary><strong>Board check: módulo system_ext em mk de system (ou vice-versa)</strong></summary>
   <p>
-    Causa: erro no <code>memtest_daemon.rc</code> ao declarar o socket. Confira
-    a sintaxe da linha:
+    Erro tipo:
   </p>
-  <pre><code>socket memtest_daemon stream 0666 root system</code></pre>
+  <pre><code>Not allowed to configure non-SYSTEM module in SYSTEM partition.
+   memtest_daemon -> [SYSTEM_EXT]</code></pre>
   <p>
-    Veja também <code>logcat -b all | grep init</code> para erros do init parsing.
+    Significa que <code>PRODUCT_PACKAGES += memtest_daemon</code> está num
+    <code>.mk</code> de system, mas o <code>Android.bp</code> declara
+    <code>system_ext_specific: true</code>. Mova a referência pra um
+    <code>.mk</code> de <strong>system_ext</strong>.
   </p>
-</details>
-
-<details>
-  <summary><strong>"connection refused" do APK ao tentar conectar</strong></summary>
-  <p>Checagem em ordem:</p>
-  <ol>
-    <li>Daemon está rodando? <code>adb shell ps -A | grep memtest</code></li>
-    <li>Socket existe? <code>adb shell ls -laZ /dev/socket/memtest_daemon</code></li>
-    <li>Socket tem permissão? Deve ser <code>0666</code> ou pelo menos <code>w</code> para o grupo do APK.</li>
-    <li>Policy do APK aplicada? <code>untrusted_app</code> precisa ter <code>connectto</code> e <code>sock_file write</code>.</li>
-  </ol>
 </details>
 
 <details>
   <summary><strong>Mudei a sepolicy mas <code>avc denied</code> continua</strong></summary>
   <p>
-    A sepolicy é compilada na imagem. Não basta editar o <code>.te</code> — precisa rebuildar e reflashear:
+    A sepolicy é compilada na imagem. Não basta editar o <code>.te</code> —
+    precisa rebuildar e reflashear:
   </p>
   <pre><code>make selinux_policy -j$(nproc)
-make vendorimage -j$(nproc)
-fastboot flash vendor out/target/product/&lt;product&gt;/vendor.img</code></pre>
+make systemextimage -j$(nproc)
+fastboot flash system_ext out/target/product/&lt;product&gt;/system_ext.img</code></pre>
 </details>
 
 <!-- ========================================================== -->
 <h2 id="checklist">13. Checklist final</h2>
 
 <ul class="checklist">
-  <li>AOSP buildado para <code>&lt;vendor&gt;/&lt;product&gt;</code> antes de qualquer mudança.</li>
-  <li>Pasta <code>memtest_daemon/</code> copiada com <code>Android.bp</code>, <code>.c</code>, <code>.rc</code>, scripts.</li>
-  <li>Pasta <code>sepolicy/vendor/</code> com <code>memtest_daemon.te</code> e <code>untrusted_app_memtest.te</code>.</li>
-  <li><code>file_contexts</code> mesclado com as 3 linhas.</li>
-  <li><code>BoardConfig.mk</code> com <code>BOARD_VENDOR_SEPOLICY_DIRS</code> apontando para nossa pasta.</li>
-  <li><code>device.mk</code> com <code>PRODUCT_PACKAGES += memtest_daemon full_memtest_sh ram_diagnostic_deep_verbose_root_exec_sh</code>.</li>
-  <li><code>memtester</code> incluído em <code>PRODUCT_PACKAGES</code>.</li>
+  <li>AOSP buildando para <code>&lt;vendor&gt;/&lt;product&gt;</code> antes de qualquer mudança.</li>
+  <li>Pasta <code>module/system_ext/memtest_daemon/</code> com <code>Android.bp</code> (com <code>system_ext_specific: true</code>), <code>.c</code>, <code>.rc</code>, scripts.</li>
+  <li><code>memtest_daemon.te</code> e <code>untrusted_app_memtest.te</code> em <code>sepolicy/system/private/</code> (ou onde <code>SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS</code> aponta).</li>
+  <li><code>file_contexts</code> mesclado com as 2 linhas (<code>/system_ext/bin/memtest_daemon</code> e <code>/dev/socket/memtest_daemon</code>).</li>
+  <li><code>SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS</code> aponta para a pasta dos <code>.te</code> (verificar grep).</li>
+  <li><code>PRODUCT_PACKAGES += memtester</code> em <code>.mk</code> de system.</li>
+  <li><code>PRODUCT_PACKAGES_DEBUG += memtest_daemon full_memtest_sh ram_diagnostic_deep_verbose_root_exec_sh</code> em <code>.mk</code> de system_ext.</li>
+  <li>APK referenciado em <code>.mk</code> de product (com <code>LOCAL_PRODUCT_MODULE := true</code>).</li>
   <li>Build <code>userdebug</code>.</li>
-  <li>Flash da imagem vendor.</li>
-  <li>Verificado: daemon rodando, socket existindo, scripts em <code>/vendor/etc/factory/</code>.</li>
+  <li>Flash da imagem <code>system_ext</code> (ou completa).</li>
+  <li>Verificado: daemon rodando, socket existindo, scripts em <code>/system_ext/etc/factory/</code>, binário em <code>/system_ext/bin/</code>.</li>
+  <li>Domínio <code>memtest_daemon</code> está em <code>permissive</code> (confirmado via <code>ps -AZ</code>).</li>
   <li>Teste manual via <code>nc -U</code> retornou <code>EXIT:0</code>.</li>
-  <li>APK instalado e teste pela UI funcionando.</li>
+  <li>APK instalado em <code>untrusted_app</code> (não priv_app) e teste pela UI funcionando.</li>
 </ul>
 
 <hr>
 
 <p style="color: var(--text-muted); font-size: 13px; text-align: center; margin-top: 64px;">
-  MemoryTest — Guia de integração AOSP. Distribua junto com a pasta
+  MemoryTest — Guia de integração AOSP v2.0. Distribua junto com a pasta
   <code>aosp_solution/</code> para o engenheiro de plataforma responsável.
 </p>
 
