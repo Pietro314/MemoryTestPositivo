@@ -1,6 +1,8 @@
-# Permite que o APK (untrusted_app) conecte ao socket do daemon
-# Adicione ao sepolicy do device
+# Permite que o APK (untrusted_app) conecte ao socket do daemon.
+# Como memtest_daemon agora é coredomain (não vendor), o neverallow
+# da linha 716 de domain.te NÃO se aplica.
+#
+# Coloque em: device/<vendor>/<product>/sepolicy/private/untrusted_app_memtest.te
 
-# O APK conecta via LocalSocket("memtest_daemon")
 allow untrusted_app memtest_daemon_socket:sock_file { write };
 allow untrusted_app memtest_daemon:unix_stream_socket connectto;

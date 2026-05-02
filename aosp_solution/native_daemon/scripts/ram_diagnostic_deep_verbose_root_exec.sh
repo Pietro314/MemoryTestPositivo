@@ -20,7 +20,7 @@
 #  como drop_caches, dmesg e acessos protegidos em /sys.
 # ==============================================================
 
-BOOTSTRAP_LOG_DIR="/data/data/com.factory.memorytest/files/memtest_work"
+BOOTSTRAP_LOG_DIR="/data/vendor/memtest"
 BOOTSTRAP_LOG="$BOOTSTRAP_LOG_DIR/ram_deep_root_bootstrap.log"
 mkdir -p "$BOOTSTRAP_LOG_DIR" 2>/dev/null
 
@@ -55,7 +55,7 @@ else
 fi
 
 
-WORKDIR="/data/data/com.factory.memorytest/files/memtest_work"
+WORKDIR="/data/vendor/memtest"
 RESULT="PASS"
 FAIL_REASONS=""
 START_TIME=$(date +%s)

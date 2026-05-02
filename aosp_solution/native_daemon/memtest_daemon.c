@@ -40,7 +40,7 @@
 #include <unistd.h>
 
 #define SOCKET_NAME  "memtest_daemon"
-#define SCRIPT_DIR   "/vendor/etc/factory"
+#define SCRIPT_DIR   "/system_ext/etc/factory"
 #define MAX_LINE     512
 #define MAX_ENV      64
 #define BUF_SIZE     4096

@@ -1,5 +1,7 @@
-# Adicione estas linhas ao file_contexts do seu device (sepolicy/vendor/file_contexts)
+# Anexe estas linhas ao file_contexts em:
+#   device/sprd/mpool/sepolicy/system/private/file_contexts
 
-/vendor/bin/memtest_daemon           u:object_r:memtest_daemon_exec:s0
-/vendor/etc/factory(/.*)?           u:object_r:vendor_configs_file:s0
-/dev/socket/memtest_daemon          u:object_r:memtest_daemon_socket:s0
+/system_ext/bin/memtest_daemon          u:object_r:memtest_daemon_exec:s0
+/system_ext/etc/factory(/.*)?          u:object_r:system_ext_file:s0
+/dev/socket/memtest_daemon             u:object_r:memtest_daemon_socket:s0
+/data/vendor/memtest(/.*)?             u:object_r:memtest_daemon_data_file:s0

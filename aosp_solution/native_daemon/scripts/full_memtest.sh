@@ -73,7 +73,7 @@ fi
 #  - Teste de RAM rápido com timeout; stress paralelo infinito removido
 # ==============================================================
 
-WORKDIR="/data/data/com.factory.memorytest/files/memtest_work"
+WORKDIR="/data/vendor/memtest"
 RESULT="PASS"
 FAIL_REASONS=""
 START_TIME=$(date +%s)

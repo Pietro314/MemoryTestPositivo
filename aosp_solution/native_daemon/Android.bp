@@ -1,11 +1,13 @@
 // Coloque este arquivo em: device/<vendor>/<product>/memtest_daemon/Android.bp
-// ou em: vendor/<vendor>/factory/memtest_daemon/Android.bp
+// Daemon de fábrica em SYSTEM_EXT partition (coredomain) — vai para /system_ext/bin/
+// Necessário (vs vendor) porque o neverallow do AOSP impede apps de
+// conectarem em sockets Unix de vendor domains.
 
 cc_binary {
     name: "memtest_daemon",
     srcs: ["memtest_daemon.c"],
-    vendor: true,                    // vai para /vendor/bin/
     init_rc: ["memtest_daemon.rc"],
+    system_ext_specific: true,
     compile_multilib: "first",
     stl: "none",
     shared_libs: [],
@@ -17,12 +19,12 @@ cc_binary {
     ],
 }
 
-// Instala os scripts de teste em /vendor/etc/factory/
+// Instala os scripts em /system_ext/etc/factory/
 prebuilt_etc {
     name: "full_memtest_sh",
     src: "scripts/full_memtest.sh",
     sub_dir: "factory",
-    vendor: true,
+    system_ext_specific: true,
     filename_from_src: true,
 }
 
@@ -30,6 +32,6 @@ prebuilt_etc {
     name: "ram_diagnostic_deep_verbose_root_exec_sh",
     src: "scripts/ram_diagnostic_deep_verbose_root_exec.sh",
     sub_dir: "factory",
-    vendor: true,
+    system_ext_specific: true,
     filename_from_src: true,
 }
