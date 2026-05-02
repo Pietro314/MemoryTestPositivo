@@ -1,9 +1,15 @@
 # SELinux policy para o memtest_daemon (system_ext / coredomain)
 # Coloque em: device/sprd/mpool/sepolicy/system/private/memtest_daemon.te
+#
+# Versão minimalista: evita dependências de atributos partição-específicos
+# (system_ext_file_type, core_data_file_type) que falham quando o .te é
+# compilado em contextos como plat_policy_for_vendor.cil.
+# Tudo o que não está aqui é coberto por `permissive memtest_daemon` em runtime.
 
 type memtest_daemon, domain, coredomain;
-type memtest_daemon_exec, exec_type, system_ext_file_type, file_type;
-type memtest_daemon_data_file, file_type, data_file_type, core_data_file_type;
+type memtest_daemon_exec, exec_type, file_type;
+type memtest_daemon_data_file, file_type, data_file_type;
+type memtest_daemon_socket, file_type;
 
 # Domain transition a partir do init
 init_daemon_domain(memtest_daemon);
@@ -22,25 +28,10 @@ allow memtest_daemon self:capability {
 };
 
 # Socket Unix
-type memtest_daemon_socket, file_type;
 allow memtest_daemon memtest_daemon_socket:sock_file { create unlink };
 allow memtest_daemon self:unix_stream_socket {
     create bind listen accept read write getattr setopt
 };
-
-# Scripts em /system_ext/etc/factory
-allow memtest_daemon system_ext_file:dir  { read open search };
-allow memtest_daemon system_ext_file:file { read open getattr };
-
-# /proc/meminfo
-allow memtest_daemon proc_meminfo:file { read open };
-
-# /sys (UFS/eMMC health, etc.)
-allow memtest_daemon sysfs:dir  { read open search };
-allow memtest_daemon sysfs:file { read open getattr };
-
-# /proc/sys/vm/drop_caches
-allow memtest_daemon proc_drop_caches:file { write open };
 
 # Diretório de trabalho em /data/vendor/memtest
 allow memtest_daemon memtest_daemon_data_file:dir  {
