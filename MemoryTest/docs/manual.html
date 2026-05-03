@@ -338,6 +338,21 @@
   <ol>
     <li><a href="#sobre">Sobre o app</a></li>
     <li><a href="#fluxo">Fluxo de uso</a></li>
+    <li><a href="#dashboard">Dashboard — 3 fluxos de teste</a>
+      <ul>
+        <li><a href="#dashboard-default">Teste Default</a></li>
+        <li><a href="#dashboard-import">Teste Import Dados</a></li>
+        <li><a href="#dashboard-cadastrar">Cadastrar device</a></li>
+      </ul>
+    </li>
+    <li><a href="#servidor">Servidor local de configurações</a>
+      <ul>
+        <li><a href="#servidor-schema">Schema do JSON</a></li>
+        <li><a href="#servidor-naming">Convenção de nomes</a></li>
+        <li><a href="#servidor-setup">Subir o servidor (Mac/Win)</a></li>
+        <li><a href="#servidor-settings">Configurar URL no APK</a></li>
+      </ul>
+    </li>
     <li><a href="#o-que-testa">O que o app testa</a>
       <ul>
         <li><a href="#testa-ram">RAM</a></li>
@@ -381,7 +396,7 @@
   <h1>MemoryTest</h1>
   <p class="subtitle">Manual de uso para fábrica e QA</p>
   <div class="meta">
-    <span>Versão do documento: 1.0</span>
+    <span>Versão do documento: 2.0</span>
     <span>Público: linha de produção, QA, validação</span>
     <span>Plataforma: Android (factory build com root)</span>
   </div>
@@ -422,22 +437,397 @@
 <!-- ========================================================== -->
 <h2 id="fluxo">2. Fluxo de uso</h2>
 
+<p>
+  A tela inicial do app é uma <strong>dashboard com 3 cards</strong>, cada um
+  representando uma forma de iniciar um teste. Escolha o que se aplica:
+</p>
+
 <ol>
-  <li><strong>Cadastrar o device</strong> — nome, fabricante, RAM, storage, classe
-    do storage. O app sugere valores razoáveis automaticamente.</li>
-  <li><strong>Selecionar o device</strong> na lista.</li>
-  <li><strong>Escolher o teste</strong>: <em>Factory</em> (rápido, ~1–3 min) ou
-    <em>Deep RAM</em> (longo, dezenas de minutos a horas).</li>
+  <li><strong>Abra o app</strong> — cai direto na dashboard.</li>
+  <li><strong>Escolha um dos 3 fluxos:</strong>
+    <ul>
+      <li><strong>Teste Default</strong> — usa a configuração padrão da fábrica
+        (baixa do servidor local; em falha, cai no <em>Default(T2070D)</em>
+        embutido no APK).</li>
+      <li><strong>Teste Import Dados</strong> — identifica o device automaticamente
+        via <code>Build.DEVICE</code> e baixa o JSON específico daquele modelo
+        do servidor (ex: <code>TL10.json</code>).</li>
+      <li><strong>Cadastrar device</strong> — fluxo manual antigo: cadastra um
+        novo device informando RAM, storage, classe, etc.</li>
+    </ul>
+  </li>
+  <li><strong>O app abre o detalhe do device</strong> e oferece dois testes:
+    <em>Factory</em> (rápido, ~1–3 min) ou <em>Deep RAM</em> (longo, dezenas de
+    minutos a horas).</li>
   <li><strong>Aguardar a execução</strong>; acompanhar status por seção e log
     completo.</li>
   <li><strong>Ver o resultado</strong>: PASS ou FAIL com justificativa, e
     salvar o relatório se necessário.</li>
 </ol>
 
-<!-- ========================================================== -->
-<h2 id="o-que-testa">3. O que o app testa</h2>
+<div class="callout info">
+  <strong>Quem só quer rodar um teste rápido</strong> — toca em <em>Teste
+  Default</em> ou <em>Teste Import Dados</em> e segue. Não precisa cadastrar
+  nada manualmente. A seção <a href="#dashboard">3 — Dashboard</a> detalha
+  cada fluxo.
+</div>
 
-<h3 id="testa-ram">3.1 RAM</h3>
+<!-- ========================================================== -->
+<h2 id="dashboard">3. Dashboard — 3 fluxos de teste</h2>
+
+<p>
+  A <code>DashboardActivity</code> é a tela inicial do APK desde a v2.0.
+  Cada card é um caminho diferente até o teste — só muda <em>de onde vem a
+  configuração</em> (parâmetros de RAM, storage, limiares).
+</p>
+
+<h3 id="dashboard-default">3.1 Card "Teste Default"</h3>
+
+<p>
+  Atalho para a configuração padrão da fábrica. Bom para teste rápido em
+  qualquer device sem cadastro prévio.
+</p>
+
+<h4>O que acontece em ordem</h4>
+<ol>
+  <li>App tenta baixar <code>default_memtest.json</code> do servidor local
+    (URL configurada em Settings).</li>
+  <li><strong>Sucesso</strong>: persiste a config baixada sobre a linha
+    <em>Default(T2070D)</em> do banco e mostra Snackbar
+    <em>"Configuração baixada do servidor"</em>.</li>
+  <li><strong>Falha de rede / servidor offline / JSON inválido</strong>:
+    cai no perfil <em>Default(T2070D)</em> embarcado no APK e mostra
+    Snackbar <em>"Servidor indisponível — usando default embarcado"</em>.</li>
+  <li>Em qualquer caso, abre a tela de detalhe do device com o perfil
+    resolvido — você escolhe FACTORY ou DEEP_RAM e roda.</li>
+</ol>
+
+<h4>O perfil "Default(T2070D)" embarcado</h4>
+<p>
+  Vem semeado no banco do APK no primeiro start. Baseado no MCP
+  <strong>Samsung KMDH6001DA-B422</strong>: 4 GB LPDDR4X, 64 GB eMMC 5.1.
+  É o fallback quando o servidor não responde.
+</p>
+
+<div class="callout warn">
+  <strong>Não dá pra excluir o Default(T2070D)</strong> — bloqueio em 3 camadas
+  (helper <code>isDefaultEmbedded</code>, repositório, e UI esconde o item de
+  delete). Editar é permitido. Quando o JSON do servidor é baixado, sobrescreve
+  os campos dele mantendo o mesmo registro no banco.
+</div>
+
+<h3 id="dashboard-import">3.2 Card "Teste Import Dados"</h3>
+
+<p>
+  Detecta automaticamente o modelo do smartphone que está sendo testado e
+  baixa o JSON específico daquele modelo. Útil quando a fábrica testa
+  vários modelos diferentes — cada um tem seus próprios limiares de
+  storage e RAM esperada.
+</p>
+
+<h4>O que acontece em ordem</h4>
+<ol>
+  <li>App lê <code>Build.DEVICE</code> do device atual (ex: <code>TL10</code>,
+    <code>T2070D</code>, <code>M51</code>).</li>
+  <li>Tenta baixar <code>&lt;Build.DEVICE&gt;.json</code> do servidor local —
+    ex: <code>http://192.168.0.42:8080/TL10.json</code>.</li>
+  <li><strong>Sucesso</strong>: persiste no banco (upsert por marker
+    <code>name+modelCode</code> do JSON) e abre o detalhe daquele perfil.
+    Snackbar: <em>"Configuração de TL10 baixada do servidor"</em>.</li>
+  <li><strong>Falha (404 ou rede)</strong>: mostra Snackbar
+    <em>"Perfil não encontrado para TL10. Será usado o default
+    (Default(T2070D))"</em> e cai no fluxo do Card 1 — ou seja, ainda roda o
+    teste, mas com a configuração padrão do T2070D em vez de uma específica
+    para o TL10.</li>
+</ol>
+
+<h4>Como descobrir o <code>Build.DEVICE</code> de um modelo</h4>
+<pre><code>adb shell getprop ro.product.device
+# Ex: TL10</code></pre>
+<p>
+  Esse é o nome do arquivo que você precisa criar no servidor:
+  <code>TL10.json</code>. Veja a seção
+  <a href="#servidor-naming">Convenção de nomes</a> para detalhes.
+</p>
+
+<h3 id="dashboard-cadastrar">3.3 Card "Cadastrar device"</h3>
+<p>
+  Abre o fluxo manual de cadastro (a antiga tela inicial do app). Use quando:
+</p>
+<ul>
+  <li>Está testando um modelo novo que ainda não tem JSON no servidor.</li>
+  <li>Quer ajustar parâmetros específicos sem mexer no servidor.</li>
+  <li>Está fazendo bancada / RMA com configurações experimentais.</li>
+</ul>
+<p>
+  Fluxo idêntico ao detalhado em <a href="#cadastro">Cadastro de device</a>.
+</p>
+
+<!-- ========================================================== -->
+<h2 id="servidor">4. Servidor local de configurações</h2>
+
+<p>
+  Os dois primeiros cards da dashboard buscam JSONs num servidor HTTP local
+  na rede Wi-Fi. Não precisa de internet — só de um PC ou notebook na mesma
+  rede que os devices em teste.
+</p>
+
+<h3>Por que ter um servidor</h3>
+<ul>
+  <li><strong>Centralizar configs</strong> — um lugar só pra ajustar
+    limiares de todos os modelos da fábrica.</li>
+  <li><strong>Sem rebuild do APK</strong> — mudar parâmetro vira edição
+    de JSON em texto, salvar, próximo teste já usa o valor novo.</li>
+  <li><strong>Múltiplos modelos</strong> — cada modelo tem seu JSON
+    próprio (<code>TL10.json</code>, <code>T2070D.json</code>, …); o
+    APK escolhe automaticamente pelo <code>Build.DEVICE</code>.</li>
+</ul>
+
+<h3 id="servidor-schema">4.1 Schema do JSON</h3>
+
+<p>
+  Estrutura flat — chaves diretas no nível raiz. Todos os campos são
+  <strong>opcionais</strong>: campos que faltarem herdam do perfil
+  <em>Default(T2070D)</em> embarcado. Ordem das chaves não importa.
+</p>
+
+<h4>Campos completos</h4>
+<table>
+  <thead>
+    <tr><th>Chave JSON</th><th>Tipo</th><th>Origem</th><th>Exemplo</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>name</code></td><td>string</td><td>METADATA</td><td>"Vaio TL10"</td></tr>
+    <tr><td><code>manufacturer</code></td><td>string</td><td>METADATA</td><td>"Positivo"</td></tr>
+    <tr><td><code>modelCode</code></td><td>string</td><td>METADATA</td><td>"ums9230_1h10"</td></tr>
+    <tr><td><code>notes</code></td><td>string</td><td>METADATA</td><td>"Linha 2026, batch 042"</td></tr>
+    <tr><td><code>expectedRamGb</code></td><td>int</td><td>DATASHEET</td><td>4</td></tr>
+    <tr><td><code>expectedStorageGb</code></td><td>int</td><td>DATASHEET</td><td>64</td></tr>
+    <tr><td><code>storageClass</code></td><td>enum (string)</td><td>DATASHEET</td><td>"EMMC_5_1"</td></tr>
+    <tr><td><code>minWriteMbps</code></td><td>int</td><td>POLÍTICA</td><td>50</td></tr>
+    <tr><td><code>minReadMbps</code></td><td>int</td><td>POLÍTICA</td><td>150</td></tr>
+    <tr><td><code>storageTestSizeMb</code></td><td>int</td><td>POLÍTICA</td><td>512</td></tr>
+    <tr><td><code>quickMemtestPercent</code></td><td>int</td><td>POLÍTICA</td><td>40</td></tr>
+    <tr><td><code>quickMemtestMaxMb</code></td><td>int</td><td>POLÍTICA</td><td>512</td></tr>
+    <tr><td><code>quickMemtestMinMb</code></td><td>int</td><td>POLÍTICA</td><td>128</td></tr>
+    <tr><td><code>quickMemtestLoops</code></td><td>int</td><td>POLÍTICA</td><td>1</td></tr>
+    <tr><td><code>quickMemtestTimeoutS</code></td><td>int</td><td>POLÍTICA</td><td>600</td></tr>
+    <tr><td><code>deepMemtestPercent</code></td><td>int</td><td>POLÍTICA</td><td>60</td></tr>
+    <tr><td><code>deepMemtestMaxMb</code></td><td>int</td><td>POLÍTICA</td><td>4096</td></tr>
+    <tr><td><code>deepMemtestMinMb</code></td><td>int</td><td>POLÍTICA</td><td>128</td></tr>
+    <tr><td><code>deepMemtestLoops</code></td><td>int</td><td>POLÍTICA</td><td>3</td></tr>
+    <tr><td><code>deepMemtestTimeoutS</code></td><td>int</td><td>POLÍTICA</td><td>3000</td></tr>
+  </tbody>
+</table>
+
+<h4>Valores válidos para <code>storageClass</code></h4>
+<p>
+  String com um dos valores abaixo (sensitive a caixa):
+  <code>EMMC_ENTRY</code>, <code>EMMC_5_0</code>, <code>EMMC_5_1</code>,
+  <code>UFS_2_1</code>, <code>UFS_3_1</code>, <code>UFS_4_0</code>,
+  <code>CUSTOM</code>. Veja a tabela em
+  <a href="#preset-storage">Storage Class</a> para entender o que cada um
+  significa.
+</p>
+
+<h4>Tolerância do parser</h4>
+<p>
+  Números podem ser inteiros (<code>"expectedRamGb": 4</code>) ou string
+  (<code>"expectedRamGb": "4"</code>) — o parser aceita os dois. Útil quando
+  o servidor serializa tudo como string.
+</p>
+
+<h4>Modelo / template</h4>
+<p>
+  O arquivo <code>docs/default_memtest.json</code> no repositório do app é
+  um modelo pronto baseado no <em>Default(T2070D)</em>. Use como base para
+  criar JSONs de outros devices: copia, ajusta os valores, renomeia.
+</p>
+
+<details>
+  <summary><strong>Ver conteúdo do default_memtest.json</strong></summary>
+<pre><code>{
+    "name": "Default(T2070D)",
+    "manufacturer": "Samsung",
+    "modelCode": "KMDH6001DA-B422",
+    "notes": "Teste default com dados do T2070D",
+
+    "expectedRamGb": 4,
+    "expectedStorageGb": 64,
+    "storageClass": "EMMC_5_1",
+
+    "minWriteMbps": 50,
+    "minReadMbps": 150,
+    "storageTestSizeMb": 512,
+
+    "quickMemtestPercent": 40,
+    "quickMemtestMaxMb": 512,
+    "quickMemtestMinMb": 128,
+    "quickMemtestLoops": 1,
+    "quickMemtestTimeoutS": 600,
+
+    "deepMemtestPercent": 60,
+    "deepMemtestMaxMb": 4096,
+    "deepMemtestMinMb": 128,
+    "deepMemtestLoops": 3,
+    "deepMemtestTimeoutS": 3000
+}</code></pre>
+</details>
+
+<h3 id="servidor-naming">4.2 Convenção de nomes dos arquivos</h3>
+
+<p>
+  O nome do arquivo no servidor define <strong>quem vai consumir aquele JSON</strong>.
+</p>
+
+<table>
+  <thead>
+    <tr><th>Nome do arquivo</th><th>Quem usa</th><th>Quando</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>default_memtest.json</code></td>
+      <td>Card <strong>Teste Default</strong></td>
+      <td>Sempre — fallback global da fábrica.</td>
+    </tr>
+    <tr>
+      <td><code>&lt;Build.DEVICE&gt;.json</code><br>(ex: <code>TL10.json</code>)</td>
+      <td>Card <strong>Teste Import Dados</strong></td>
+      <td>Quando o device em teste tem <code>ro.product.device</code> = TL10.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4>Como descobrir <code>Build.DEVICE</code> de um device</h4>
+<pre><code>adb shell getprop ro.product.device
+# TL10
+# (esse é o nome do arquivo: TL10.json)</code></pre>
+
+<h4>Estrutura típica do servidor</h4>
+<pre><code>/var/www/memtest/   (ou C:\memtest\, ou onde for hospedado)
+├── default_memtest.json     ← fallback global
+├── TL10.json                ← Vaio TL10 (Positivo)
+├── T2070D.json              ← Samsung T2070D
+├── M51.json                 ← Samsung M51
+└── …</code></pre>
+
+<div class="callout info">
+  <strong>Sensibilidade a caixa</strong> — em servidores Linux/macOS
+  (case-sensitive), <code>TL10.json</code> ≠ <code>tl10.json</code>.
+  Use exatamente o que <code>getprop ro.product.device</code> retorna.
+</div>
+
+<h3 id="servidor-setup">4.3 Subir um servidor local (Mac/Windows)</h3>
+
+<p>
+  Qualquer HTTP server estático serve. Mais simples: Python embutido no
+  sistema. Pode ser substituído por nginx/IIS/caddy se precisar de algo
+  mais robusto.
+</p>
+
+<h4>Pré-requisitos</h4>
+<ul>
+  <li>PC e celular na <strong>mesma rede Wi-Fi</strong>.</li>
+  <li>Python 3 instalado (vem nativo no Mac; no Windows, instalar via Microsoft
+    Store ou python.org).</li>
+  <li>Pasta com os arquivos JSON criados (ex: <code>~/memtest/</code> ou
+    <code>C:\memtest\</code>).</li>
+</ul>
+
+<h4>Mac</h4>
+<pre><code># 1. Descobre o IP do Mac na Wi-Fi
+ipconfig getifaddr en0
+# Ex: 192.168.0.42
+
+# 2. Sobe o servidor na pasta com os JSONs
+cd ~/memtest
+python3 -m http.server 8080</code></pre>
+
+<h4>Windows (PowerShell)</h4>
+<pre><code># 1. Descobre o IP da Wi-Fi
+(Get-NetIPAddress -InterfaceAlias "Wi-Fi" -AddressFamily IPv4).IPAddress
+# Ou rode 'ipconfig' e procure IPv4 do adaptador Wi-Fi
+
+# 2. Sobe o servidor
+cd C:\memtest
+python -m http.server 8080</code></pre>
+
+<div class="callout warn">
+  <strong>Firewall</strong> — primeira vez que Python abre porta, o sistema
+  pede permissão. Marque <em>"Redes privadas"</em> e clique <em>Permitir</em>.
+  Mac: System Settings → Network → Firewall → permite Python. Windows:
+  Windows Defender → Permitir aplicativo.
+</div>
+
+<h4>Validar pelo navegador</h4>
+<p>
+  No celular, abra o navegador e teste:
+</p>
+<pre><code>http://192.168.0.42:8080/default_memtest.json</code></pre>
+<p>
+  Se aparecer o JSON formatado, está tudo OK. Se der erro, ver troubleshoot
+  abaixo.
+</p>
+
+<h4>Troubleshoot</h4>
+<table>
+  <thead><tr><th>Sintoma</th><th>Causa</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Browser do celular não abre</td>
+      <td>Firewall do PC bloqueando</td>
+      <td>Liberar Python no firewall (privadas)</td>
+    </tr>
+    <tr>
+      <td><code>Address already in use</code></td>
+      <td>Porta 8080 ocupada</td>
+      <td>Trocar para 8888 (e ajustar URL no app)</td>
+    </tr>
+    <tr>
+      <td>App mostra "usando default embarcado"</td>
+      <td>URL errada nas Settings</td>
+      <td>Conferir preview da URL final na tela Settings</td>
+    </tr>
+    <tr>
+      <td>Wi-Fi corporativa bloqueia</td>
+      <td>AP isolation</td>
+      <td>Usar hotspot do celular ou rede de casa</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="servidor-settings">4.4 Configurar a URL no APK (tela Settings)</h3>
+
+<p>
+  Para o APK encontrar o servidor, configure a URL base na tela de
+  configurações.
+</p>
+
+<ol>
+  <li>Na dashboard, toque no ícone de engrenagem (canto superior direito).</li>
+  <li>No campo <strong>"URL base do servidor"</strong>, cole a URL com
+    esquema, IP e porta — terminando em <code>/</code>:
+    <pre><code>http://192.168.0.42:8080/</code></pre>
+  </li>
+  <li>O preview abaixo do campo mostra <strong>em tempo real</strong> a URL
+    final que o app vai bater (ex:
+    <code>http://192.168.0.42:8080/default_memtest.json</code>) — confira se
+    é o esperado.</li>
+  <li>Toque <strong>Salvar</strong>. A URL fica persistida em SharedPreferences;
+    todas as próximas chamadas usam ela.</li>
+</ol>
+
+<h4>Validar via adb (sem abrir o app)</h4>
+<pre><code>adb shell curl -v http://192.168.0.42:8080/default_memtest.json</code></pre>
+<p>
+  Se o curl baixar o JSON, o problema (se houver) está no app.
+  Se nem o curl chegar, é rede/firewall.
+</p>
+
+<!-- ========================================================== -->
+<h2 id="o-que-testa">5. O que o app testa</h2>
+
+<h3 id="testa-ram">5.1 RAM</h3>
 <p>
   O <code>memtester</code> aloca uma região de RAM e executa uma bateria de
   padrões de teste (todos zeros, todos uns, walking ones, walking zeros, XOR
@@ -457,7 +847,7 @@
   RAM".
 </p>
 
-<h3 id="testa-storage">3.2 Storage (eMMC / UFS)</h3>
+<h3 id="testa-storage">5.2 Storage (eMMC / UFS)</h3>
 <p>O teste de storage tem três partes:</p>
 <ol>
   <li><strong>Health check</strong>: lê <code>life_time_estimation_a/b</code> (UFS) ou
@@ -476,7 +866,7 @@
 </ol>
 
 <!-- ========================================================== -->
-<h2 id="cadastro">4. Cadastro de device — campo a campo</h2>
+<h2 id="cadastro">6. Cadastro de device — campo a campo</h2>
 
 <p>
   Cada campo do formulário tem uma origem indicada por uma das tags abaixo:
@@ -490,7 +880,7 @@
 </ul>
 
 <!-- ========================================================== -->
-<h3 id="cadastro-id">4.1 Seção "Identificação"</h3>
+<h3 id="cadastro-id">6.1 Seção "Identificação"</h3>
 
 <div class="field">
   <h3>
@@ -542,7 +932,7 @@
 </div>
 
 <!-- ========================================================== -->
-<h3 id="cadastro-hw">4.2 Seção "Hardware esperado"</h3>
+<h3 id="cadastro-hw">6.2 Seção "Hardware esperado"</h3>
 
 <div class="field">
   <h3>
@@ -604,7 +994,7 @@
 </div>
 
 <!-- ========================================================== -->
-<h3 id="cadastro-storage">4.3 Seção "Limiares de Storage"</h3>
+<h3 id="cadastro-storage">6.3 Seção "Limiares de Storage"</h3>
 
 <p>
   Esses três campos definem o que conta como "storage saudável". São auto-preenchidos
@@ -670,7 +1060,7 @@
 </div>
 
 <!-- ========================================================== -->
-<h3 id="cadastro-quick">4.4 Seção "Teste padrão (rápido)"</h3>
+<h3 id="cadastro-quick">6.4 Seção "Teste padrão (rápido)"</h3>
 
 <p>
   Este conjunto de campos controla o teste de RAM <strong>rápido</strong>, usado na
@@ -762,7 +1152,7 @@
 </div>
 
 <!-- ========================================================== -->
-<h3 id="cadastro-deep">4.5 Seção "Diagnóstico profundo de RAM"</h3>
+<h3 id="cadastro-deep">6.5 Seção "Diagnóstico profundo de RAM"</h3>
 
 <p>
   Versão pesada do teste de RAM. Não é para linha — é para diagnóstico de
@@ -848,7 +1238,7 @@
 </div>
 
 <!-- ========================================================== -->
-<h2 id="auto-fill">5. Auto-preenchimento e edição livre</h2>
+<h2 id="auto-fill">7. Auto-preenchimento e edição livre</h2>
 
 <div class="callout info">
   <strong>Princípio:</strong> selecionar RAM ou Storage Class é uma <em>sugestão</em>.
@@ -895,9 +1285,9 @@
 </div>
 
 <!-- ========================================================== -->
-<h2 id="presets">6. Tabelas de presets</h2>
+<h2 id="presets">8. Tabelas de presets</h2>
 
-<h3 id="preset-ram">6.1 RAM Preset</h3>
+<h3 id="preset-ram">8.1 RAM Preset</h3>
 <p>Aplicado quando você seleciona "Quantidade de RAM" no formulário.</p>
 
 <h4>Quick test (factory)</h4>
@@ -954,7 +1344,7 @@
   </tbody>
 </table>
 
-<h3 id="preset-storage">6.2 Storage Class</h3>
+<h3 id="preset-storage">8.2 Storage Class</h3>
 <p>Aplicado quando você seleciona a Storage Class no formulário.</p>
 
 <table>
@@ -1013,7 +1403,7 @@
 </div>
 
 <!-- ========================================================== -->
-<h2 id="datasheet">7. Datasheet × app</h2>
+<h2 id="datasheet">9. Datasheet × app</h2>
 
 <p>
   Nem todo campo do app sai do datasheet do componente. Datasheet descreve <em>o
@@ -1021,7 +1411,7 @@
   Isso é decisão de fábrica/QA, não do fabricante do chip.
 </p>
 
-<h3 id="datasheet-tem">7.1 O que vem do datasheet</h3>
+<h3 id="datasheet-tem">9.1 O que vem do datasheet</h3>
 <ul class="checklist">
   <li><strong>Fabricante</strong> — capa / rodapé do PDF.</li>
   <li><strong>Modelo / Part Number</strong> — capa.</li>
@@ -1030,14 +1420,14 @@
   <li><strong>Storage Class</strong> — seção features: "<em>eMMC Ver. 5.x</em>" ou "<em>UFS x.x</em>".</li>
 </ul>
 
-<h3 id="datasheet-nao-tem">7.2 O que NÃO vem do datasheet</h3>
+<h3 id="datasheet-nao-tem">9.2 O que NÃO vem do datasheet</h3>
 <ul class="checklist">
   <li class="no"><strong>MIN_WRITE_MBPS / MIN_READ_MBPS</strong> — datasheet dá pico teórico (ex: HS400 = 400 MB/s), não o limiar de PASS/FAIL. O limiar é decisão de QA: ~50% do sustentado.</li>
   <li class="no"><strong>STORAGE_TEST_SIZE_MB</strong> — parâmetro de teste, não do chip.</li>
   <li class="no"><strong>QUICK_MEMTEST_*</strong> e <strong>MEMTEST_*</strong> — política de quanto e por quanto tempo testar. Vem da decisão de fábrica/QA.</li>
 </ul>
 
-<h3 id="datasheet-exemplo">7.3 Exemplo prático — KMDH6001DA-B422</h3>
+<h3 id="datasheet-exemplo">9.3 Exemplo prático — KMDH6001DA-B422</h3>
 <p>
   Tomando o datasheet do MCP <strong>Samsung KMDH6001DA-B422</strong> (T2070D), ponto a ponto:
 </p>
@@ -1079,7 +1469,7 @@
 </table>
 
 <!-- ========================================================== -->
-<h2 id="ler-datasheet">8. Como ler um datasheet de memória</h2>
+<h2 id="ler-datasheet">10. Como ler um datasheet de memória</h2>
 
 <p>
   Datasheet de chip de memória normalmente tem 100–300 páginas. Para o cadastro
@@ -1132,7 +1522,7 @@
 </div>
 
 <!-- ========================================================== -->
-<h2 id="sem-datasheet">9. Sem datasheet — descobrir no próprio device</h2>
+<h2 id="sem-datasheet">11. Sem datasheet — descobrir no próprio device</h2>
 
 <p>
   Se você tem o device em mãos mas não tem datasheet, dá para descobrir tudo
@@ -1167,7 +1557,7 @@ adb shell cat /sys/block/mmcblk*/device/ext_csd # detalhado (so root)</code></pr
 adb shell blockdev --getsize64 /dev/block/mmcblk0    # bytes totais</code></pre>
 
 <!-- ========================================================== -->
-<h2 id="executar">10. Executar um teste</h2>
+<h2 id="executar">12. Executar um teste</h2>
 
 <ol>
   <li>Na tela inicial, toque no device cadastrado.</li>
@@ -1200,7 +1590,7 @@ adb shell blockdev --getsize64 /dev/block/mmcblk0    # bytes totais</code></pre>
 </table>
 
 <!-- ========================================================== -->
-<h2 id="glossario">11. Glossário</h2>
+<h2 id="glossario">13. Glossário</h2>
 
 <details>
   <summary><strong>eMMC</strong> (embedded MultiMediaCard)</summary>
@@ -1263,7 +1653,66 @@ adb shell blockdev --getsize64 /dev/block/mmcblk0    # bytes totais</code></pre>
 </details>
 
 <!-- ========================================================== -->
-<h2 id="faq">12. FAQ — perguntas comuns</h2>
+<h2 id="faq">14. FAQ — perguntas comuns</h2>
+
+<details>
+  <summary><strong>Como descobrir qual nome de arquivo o "Teste Import Dados" vai procurar?</strong></summary>
+  <p>
+    O nome é o valor de <code>Build.DEVICE</code> do device, com extensão
+    <code>.json</code>. Para descobrir, ligue o device no PC e rode:
+  </p>
+  <pre><code>adb shell getprop ro.product.device</code></pre>
+  <p>
+    O retorno é exatamente o que o app vai procurar. Ex: se retornar
+    <code>TL10</code>, crie <code>TL10.json</code> no servidor.
+  </p>
+</details>
+
+<details>
+  <summary><strong>O JSON do servidor pode ter campos a mais ou a menos?</strong></summary>
+  <p>
+    <strong>A menos:</strong> sim. Campos ausentes herdam do perfil
+    <em>Default(T2070D)</em> embarcado. Útil quando você só quer sobrescrever
+    1–2 limiares e deixar o resto padrão.<br>
+    <strong>A mais:</strong> também. Chaves desconhecidas são ignoradas
+    silenciosamente — você pode incluir campos extras (ex: <code>"_comment"</code>)
+    sem quebrar o parser.
+  </p>
+</details>
+
+<details>
+  <summary><strong>O que acontece se eu rodar o "Teste Import Dados" e o JSON não existir no servidor?</strong></summary>
+  <p>
+    O app mostra Snackbar avisando <em>"Perfil não encontrado para
+    [Build.DEVICE]. Será usado o default (Default(T2070D))"</em> e <strong>cai
+    no fluxo do "Teste Default"</strong> — ou seja, ainda roda o teste, mas
+    com a configuração padrão do T2070D em vez de uma específica para aquele
+    device. O técnico pode então criar o JSON correto no servidor e tentar
+    de novo.
+  </p>
+</details>
+
+<details>
+  <summary><strong>Posso cadastrar manualmente um device que também tem JSON no servidor?</strong></summary>
+  <p>
+    Pode. Mas se você usar <em>Teste Import Dados</em> depois, o app faz upsert
+    pelo marker <code>name</code>+<code>modelCode</code> do JSON — se bater
+    com o registro manual, sobrescreve. Se for diferente, cria entrada
+    separada. Recomendação: pra um mesmo modelo, use só um caminho (ou
+    manual, ou via servidor) para evitar confusão no histórico.
+  </p>
+</details>
+
+<details>
+  <summary><strong>Por que o servidor é só HTTP (sem HTTPS)?</strong></summary>
+  <p>
+    É factory test em rede local controlada. HTTPS exigiria certificado
+    válido em cada PC de fábrica — overhead sem benefício real, já que
+    a rede é interna. O Manifest do APK declara
+    <code>android:usesCleartextTraffic="true"</code> exatamente por isso.
+    Se algum dia for usar fora de fábrica, revisar.
+  </p>
+</details>
 
 <details>
   <summary><strong>Por que existe dropdown de RAM e Storage Class? Não dá para detectar automático?</strong></summary>

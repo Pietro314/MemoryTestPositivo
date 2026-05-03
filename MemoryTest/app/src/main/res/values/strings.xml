@@ -11,11 +11,13 @@
     <string name="dashboard_option_import_subtitle">Importa o JSON específico deste device pela rede Wi-Fi local antes de rodar o teste.</string>
     <string name="dashboard_option_register_title">Cadastrar device</string>
     <string name="dashboard_option_register_subtitle">Cadastra manualmente um novo device e roda o teste com os parâmetros informados.</string>
-    <string name="dashboard_coming_soon">Em breve — fluxo ainda não implementado.</string>
     <string name="dashboard_default_loading">Baixando configuração do servidor…</string>
     <string name="dashboard_default_from_server">Configuração baixada do servidor.</string>
     <string name="dashboard_default_from_embedded">Servidor indisponível — usando default embarcado.</string>
     <string name="dashboard_default_no_device">Default device não encontrado no app.</string>
+    <string name="dashboard_import_loading">Buscando configuração para %1$s…</string>
+    <string name="dashboard_import_success">Configuração de %1$s baixada do servidor.</string>
+    <string name="dashboard_import_fallback">Perfil não encontrado para %1$s. Será usado o default (%2$s).</string>
 
     <!-- Settings -->
     <string name="action_settings">Configurações</string>

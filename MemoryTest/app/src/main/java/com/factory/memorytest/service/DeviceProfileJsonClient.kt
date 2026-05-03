@@ -19,6 +19,14 @@ class DeviceProfileJsonClient(
     suspend fun fetchDefault(fallback: DeviceProfile): Result<DeviceProfile> =
         fetch(config.defaultProfileUrl(), fallback)
 
+    /**
+     * Baixa o JSON específico do device atual usando Build.DEVICE como chave.
+     * Convenção: arquivo chamado `<Build.DEVICE>.json` na raiz do servidor.
+     * Ex: device TL10 → http://server/TL10.json
+     */
+    suspend fun fetchForDevice(deviceId: String, fallback: DeviceProfile): Result<DeviceProfile> =
+        fetch(config.profileUrlFor("${deviceId}.json"), fallback)
+
     suspend fun fetch(urlString: String, fallback: DeviceProfile): Result<DeviceProfile> =
         withContext(Dispatchers.IO) {
             runCatching {

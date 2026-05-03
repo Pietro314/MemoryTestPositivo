@@ -1,6 +1,7 @@
 package com.factory.memorytest.ui.dashboard
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -31,7 +32,7 @@ class DashboardActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         binding.cardDefaultTest.setOnClickListener { runDefaultTest() }
-        binding.cardImportTest.setOnClickListener { showComingSoon() }
+        binding.cardImportTest.setOnClickListener { runImportTest() }
         binding.cardRegisterDevice.setOnClickListener {
             startActivity(Intent(this, DeviceListActivity::class.java))
         }
@@ -107,7 +108,67 @@ class DashboardActivity : AppCompatActivity() {
         )
     }
 
-    private fun showComingSoon() {
-        Snackbar.make(binding.root, R.string.dashboard_coming_soon, Snackbar.LENGTH_SHORT).show()
+    /**
+     * Identifica o device atual via Build.DEVICE e tenta baixar o JSON
+     * específico (`<Build.DEVICE>.json`). Em sucesso, persiste o perfil no
+     * Room (upsert por marker name+modelCode) e abre DeviceDetailActivity.
+     * Em falha, mostra aviso e cai no fluxo do "Teste Default".
+     */
+    private fun runImportTest() {
+        val deviceId = Build.DEVICE.orEmpty().ifBlank { "desconhecido" }
+
+        binding.cardImportTest.isEnabled = false
+        val loading = Snackbar.make(
+            binding.root,
+            getString(R.string.dashboard_import_loading, deviceId),
+            Snackbar.LENGTH_INDEFINITE,
+        ).also { it.show() }
+
+        lifecycleScope.launch {
+            try {
+                val profile = resolveImportedProfile(deviceId)
+                if (profile == null) {
+                    Snackbar.make(
+                        binding.root, R.string.dashboard_default_no_device, Snackbar.LENGTH_LONG
+                    ).show()
+                    return@launch
+                }
+                startActivity(DeviceDetailActivity.intent(this@DashboardActivity, profile.id))
+            } finally {
+                loading.dismiss()
+                binding.cardImportTest.isEnabled = true
+            }
+        }
+    }
+
+    private suspend fun resolveImportedProfile(deviceId: String): DeviceProfile? {
+        val result = profileClient.fetchForDevice(deviceId, DefaultDeviceProfile.build())
+
+        return result.fold(
+            onSuccess = { fetched ->
+                // Upsert pelo marker do JSON (name+modelCode), preservando id se já existir.
+                val existing = deviceRepo.findByMarker(fetched.name, fetched.modelCode)
+                val toSave = fetched.copy(id = existing?.id ?: 0L)
+                val id = deviceRepo.upsert(toSave)
+                Snackbar.make(
+                    binding.root,
+                    getString(R.string.dashboard_import_success, deviceId),
+                    Snackbar.LENGTH_SHORT,
+                ).show()
+                toSave.copy(id = id)
+            },
+            onFailure = {
+                Snackbar.make(
+                    binding.root,
+                    getString(
+                        R.string.dashboard_import_fallback,
+                        deviceId,
+                        DefaultDeviceProfile.NAME,
+                    ),
+                    Snackbar.LENGTH_LONG,
+                ).show()
+                resolveDefaultProfile()
+            }
+        )
     }
 }
