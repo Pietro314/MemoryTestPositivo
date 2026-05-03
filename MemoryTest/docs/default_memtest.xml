@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  default_memtest.xml
+  ===================
+  Configuracao default servida pelo servidor local de fabrica.
+  O APK MemoryTest baixa este arquivo quando o usuario toca em
+  "Teste Default" na dashboard.
+
+  URL esperada: <ServerConfig.baseUrl> + "default_memtest.xml"
+  Ex.: http://192.168.0.10:8080/default_memtest.xml
+
+  - Todos os campos sao opcionais. Os que faltarem herdam do
+    perfil embarcado no APK (Default(T2070D), Samsung KMDH6001DA-B422).
+  - Tipos: strings simples; campos numericos sao inteiros (sem unidade).
+  - storageClass aceita um dos enums: EMMC_ENTRY, EMMC_5_0, EMMC_5_1,
+    UFS_2_1, UFS_3_1, UFS_4_0, CUSTOM.
+-->
+<deviceProfile>
+    <!-- Identificacao -->
+    <name>Default(T2070D)</name>
+    <manufacturer>Samsung</manufacturer>
+    <modelCode>KMDH6001DA-B422</modelCode>
+    <notes>Teste default com dados do T2070D</notes>
+
+    <!-- Hardware esperado -->
+    <expectedRamGb>4</expectedRamGb>
+    <expectedStorageGb>64</expectedStorageGb>
+    <storageClass>EMMC_5_1</storageClass>
+
+    <!-- Limiares de Storage (I/O) -->
+    <minWriteMbps>50</minWriteMbps>
+    <minReadMbps>150</minReadMbps>
+    <storageTestSizeMb>512</storageTestSizeMb>
+
+    <!-- Quick / factory test (full_memtest.sh) -->
+    <quickMemtestPercent>40</quickMemtestPercent>
+    <quickMemtestMaxMb>512</quickMemtestMaxMb>
+    <quickMemtestMinMb>128</quickMemtestMinMb>
+    <quickMemtestLoops>1</quickMemtestLoops>
+    <quickMemtestTimeoutS>600</quickMemtestTimeoutS>
+
+    <!-- Diagnostico profundo de RAM (ram_diagnostic_deep_verbose_root_exec.sh) -->
+    <deepMemtestPercent>60</deepMemtestPercent>
+    <deepMemtestMaxMb>4096</deepMemtestMaxMb>
+    <deepMemtestMinMb>128</deepMemtestMinMb>
+    <deepMemtestLoops>3</deepMemtestLoops>
+    <deepMemtestTimeoutS>3000</deepMemtestTimeoutS>
+</deviceProfile>

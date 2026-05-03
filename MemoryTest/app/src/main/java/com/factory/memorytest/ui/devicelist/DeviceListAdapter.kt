@@ -42,6 +42,9 @@ class DeviceListAdapter(
         private fun showMenu(anchor: View, item: DeviceProfile) {
             val popup = PopupMenu(anchor.context, anchor)
             popup.menuInflater.inflate(R.menu.menu_device_card, popup.menu)
+            if (item.isDefaultEmbedded) {
+                popup.menu.findItem(R.id.action_delete)?.isVisible = false
+            }
             popup.setOnMenuItemClickListener { mi ->
                 val action = when (mi.itemId) {
                     R.id.action_edit -> MenuAction.EDIT

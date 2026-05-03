@@ -39,6 +39,14 @@ data class DeviceProfile(
     val displayName: String
         get() = if (manufacturer.isBlank()) name else "$name — $manufacturer"
 
+    /**
+     * O perfil "Default(T2070D)" embarcado nao pode ser excluido — ele eh
+     * o fallback do "Teste Default" quando o XML do servidor falha.
+     * Pode ser editado normalmente.
+     */
+    val isDefaultEmbedded: Boolean
+        get() = name == DefaultDeviceProfile.NAME && modelCode == DefaultDeviceProfile.MODEL_CODE
+
     fun toEntity(): DeviceProfileEntity = DeviceProfileEntity(
         id = id,
         name = name,

@@ -83,6 +83,7 @@ class DeviceDetailActivity : AppCompatActivity() {
 
     private fun renderProfile(profile: DeviceProfile) {
         binding.toolbar.title = profile.name
+        binding.toolbar.menu.findItem(R.id.action_delete)?.isVisible = !profile.isDefaultEmbedded
         binding.tvName.text = profile.name
         binding.tvManufacturer.text = profile.manufacturer.ifBlank { "—" }
         binding.chipRam.text = "${profile.expectedRamGb} GB RAM"

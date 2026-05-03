@@ -21,6 +21,9 @@ class DeviceRepository(private val dao: DeviceProfileDao) {
     suspend fun similarByRam(ramGb: Int, excludeId: Long = -1L): List<DeviceProfile> =
         dao.similarByRam(ramGb, excludeId).map(DeviceProfile::fromEntity)
 
+    suspend fun findByMarker(name: String, modelCode: String): DeviceProfile? =
+        dao.findByMarker(name, modelCode)?.let(DeviceProfile::fromEntity)
+
     suspend fun upsert(profile: DeviceProfile): Long {
         val now = System.currentTimeMillis()
         val toSave = profile.copy(updatedAt = now)
@@ -32,7 +35,14 @@ class DeviceRepository(private val dao: DeviceProfileDao) {
         }
     }
 
-    suspend fun delete(profile: DeviceProfile) = dao.delete(profile.toEntity())
+    suspend fun delete(profile: DeviceProfile) {
+        if (profile.isDefaultEmbedded) return
+        dao.delete(profile.toEntity())
+    }
 
-    suspend fun deleteById(id: Long) = dao.deleteById(id)
+    suspend fun deleteById(id: Long) {
+        val existing = dao.findById(id) ?: return
+        if (DeviceProfile.fromEntity(existing).isDefaultEmbedded) return
+        dao.deleteById(id)
+    }
 }

@@ -42,6 +42,8 @@ class DeviceListActivity : AppCompatActivity() {
         binding.rvDevices.layoutManager = LinearLayoutManager(this)
         binding.rvDevices.adapter = adapter
 
+        binding.toolbar.setNavigationOnClickListener { finish() }
+
         binding.fabAdd.setOnClickListener {
             startActivity(DeviceEditActivity.newIntent(this))
         }

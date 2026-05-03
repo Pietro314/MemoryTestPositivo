@@ -23,6 +23,9 @@ interface DeviceProfileDao {
     @Query("SELECT * FROM device_profiles WHERE expectedRamGb = :ramGb AND id != :excludeId ORDER BY updatedAt DESC")
     suspend fun similarByRam(ramGb: Int, excludeId: Long = -1L): List<DeviceProfileEntity>
 
+    @Query("SELECT * FROM device_profiles WHERE name = :name AND modelCode = :modelCode LIMIT 1")
+    suspend fun findByMarker(name: String, modelCode: String): DeviceProfileEntity?
+
     @Query("SELECT COUNT(*) FROM device_profiles")
     suspend fun count(): Int
 

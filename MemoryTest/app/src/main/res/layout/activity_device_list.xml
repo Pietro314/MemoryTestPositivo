@@ -17,6 +17,7 @@
             android:layout_height="?attr/actionBarSize"
             android:title="@string/title_device_list"
             app:menu="@menu/menu_device_list"
+            app:navigationIcon="@drawable/ic_arrow_back"
             app:titleTextAppearance="@style/TextAppearance.Material3.HeadlineSmall" />
     </com.google.android.material.appbar.AppBarLayout>
 
