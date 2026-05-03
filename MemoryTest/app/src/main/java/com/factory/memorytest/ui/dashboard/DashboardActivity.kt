@@ -9,7 +9,7 @@ import com.factory.memorytest.R
 import com.factory.memorytest.databinding.ActivityDashboardBinding
 import com.factory.memorytest.domain.DefaultDeviceProfile
 import com.factory.memorytest.domain.DeviceProfile
-import com.factory.memorytest.service.DeviceProfileXmlClient
+import com.factory.memorytest.service.DeviceProfileJsonClient
 import com.factory.memorytest.service.ServerConfig
 import com.factory.memorytest.ui.devicedetail.DeviceDetailActivity
 import com.factory.memorytest.ui.devicelist.DeviceListActivity
@@ -23,7 +23,7 @@ class DashboardActivity : AppCompatActivity() {
     private lateinit var binding: ActivityDashboardBinding
 
     private val deviceRepo by lazy { (application as MemoryTestApp).deviceRepo }
-    private val xmlClient by lazy { DeviceProfileXmlClient(ServerConfig(this)) }
+    private val profileClient by lazy { DeviceProfileJsonClient(ServerConfig(this)) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,7 +75,7 @@ class DashboardActivity : AppCompatActivity() {
     }
 
     /**
-     * Tenta baixar default_memtest.xml do servidor local. Em sucesso, persiste
+     * Tenta baixar default_memtest.json do servidor local. Em sucesso, persiste
      * sobre a linha "Default(T2070D)" (ou cria) e devolve o perfil. Em falha,
      * devolve a linha embarcada do banco. Retorna null somente se nem mesmo
      * o seed embutido existir (ex: usuario apagou e DB ainda nao reinseriu).
@@ -88,7 +88,7 @@ class DashboardActivity : AppCompatActivity() {
             it.copy(id = id)
         }
 
-        val result = xmlClient.fetchDefault(embedded)
+        val result = profileClient.fetchDefault(embedded)
         return result.fold(
             onSuccess = { fetched ->
                 val merged = fetched.copy(id = embedded.id)

@@ -33,8 +33,8 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun updatePreview(rawUrl: String) {
         val normalized = if (rawUrl.endsWith("/")) rawUrl else "$rawUrl/"
-        binding.tvDefaultXmlPreview.text = getString(
-            R.string.settings_default_xml_preview,
+        binding.tvDefaultJsonPreview.text = getString(
+            R.string.settings_default_json_preview,
             normalized + ServerConfig.DEFAULT_PROFILE_FILE,
         )
     }

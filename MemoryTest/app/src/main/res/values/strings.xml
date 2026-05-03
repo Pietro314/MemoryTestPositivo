@@ -8,7 +8,7 @@
     <string name="dashboard_option_default_title">Teste Default</string>
     <string name="dashboard_option_default_subtitle">Baixa a configuração padrão do servidor local e roda o teste automaticamente.</string>
     <string name="dashboard_option_import_title">Teste Import Dados</string>
-    <string name="dashboard_option_import_subtitle">Importa o XML específico deste device pela rede Wi-Fi local antes de rodar o teste.</string>
+    <string name="dashboard_option_import_subtitle">Importa o JSON específico deste device pela rede Wi-Fi local antes de rodar o teste.</string>
     <string name="dashboard_option_register_title">Cadastrar device</string>
     <string name="dashboard_option_register_subtitle">Cadastra manualmente um novo device e roda o teste com os parâmetros informados.</string>
     <string name="dashboard_coming_soon">Em breve — fluxo ainda não implementado.</string>
@@ -24,7 +24,7 @@
     <string name="settings_server_url_label">URL base do servidor</string>
     <string name="settings_server_url_helper">Inclua esquema e porta. Termina com / — ex: http://192.168.0.10:8080/</string>
     <string name="settings_server_url_invalid">URL inválida. Use http(s)://host[:porta]/</string>
-    <string name="settings_default_xml_preview">XML default: %1$s</string>
+    <string name="settings_default_json_preview">JSON default: %1$s</string>
     <string name="settings_saved">Configurações salvas.</string>
 
     <!-- Device list -->

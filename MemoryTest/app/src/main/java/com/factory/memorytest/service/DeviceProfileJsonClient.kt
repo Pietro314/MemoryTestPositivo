@@ -7,10 +7,10 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Faz GET de um XML de DeviceProfile no servidor local e converte em DeviceProfile.
+ * Faz GET de um JSON de DeviceProfile no servidor local e converte em DeviceProfile.
  * Sucesso/falha encapsulados em Result — chamadores caem no fallback embutido em Failure.
  */
-class DeviceProfileXmlClient(
+class DeviceProfileJsonClient(
     private val config: ServerConfig,
     private val connectTimeoutMs: Int = 4_000,
     private val readTimeoutMs: Int = 4_000,
@@ -26,7 +26,7 @@ class DeviceProfileXmlClient(
                     requestMethod = "GET"
                     connectTimeout = connectTimeoutMs
                     readTimeout = readTimeoutMs
-                    setRequestProperty("Accept", "application/xml, text/xml")
+                    setRequestProperty("Accept", "application/json")
                     instanceFollowRedirects = true
                 }
                 try {
@@ -35,7 +35,7 @@ class DeviceProfileXmlClient(
                         error("HTTP $code")
                     }
                     conn.inputStream.use { stream ->
-                        DeviceProfileXmlParser.parse(stream, fallback)
+                        DeviceProfileJsonParser.parse(stream, fallback)
                     }
                 } finally {
                     conn.disconnect()

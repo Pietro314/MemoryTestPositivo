@@ -1,0 +1,28 @@
+{
+    "_comment": "Configuração default servida pelo servidor local de fábrica. O APK MemoryTest baixa este arquivo quando o usuário toca em 'Teste Default' na dashboard. URL esperada: <ServerConfig.baseUrl> + 'default_memtest.json'. Ex.: http://192.168.0.10:8080/default_memtest.json. Todos os campos são opcionais — campos ausentes herdam do perfil embarcado no APK (Default(T2070D), Samsung KMDH6001DA-B422). Tipos: strings simples; campos numéricos são inteiros (sem unidade). storageClass aceita um dos enums: EMMC_ENTRY, EMMC_5_0, EMMC_5_1, UFS_2_1, UFS_3_1, UFS_4_0, CUSTOM.",
+
+    "name": "Default(T2070D)",
+    "manufacturer": "Samsung",
+    "modelCode": "KMDH6001DA-B422",
+    "notes": "Teste default com dados do T2070D",
+
+    "expectedRamGb": 4,
+    "expectedStorageGb": 64,
+    "storageClass": "EMMC_5_1",
+
+    "minWriteMbps": 50,
+    "minReadMbps": 150,
+    "storageTestSizeMb": 512,
+
+    "quickMemtestPercent": 40,
+    "quickMemtestMaxMb": 512,
+    "quickMemtestMinMb": 128,
+    "quickMemtestLoops": 1,
+    "quickMemtestTimeoutS": 600,
+
+    "deepMemtestPercent": 60,
+    "deepMemtestMaxMb": 4096,
+    "deepMemtestMinMb": 128,
+    "deepMemtestLoops": 3,
+    "deepMemtestTimeoutS": 3000
+}
