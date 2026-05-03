@@ -195,7 +195,10 @@ static void handle_client(int client_fd) {
     char script_path[512];
     snprintf(script_path, sizeof(script_path), "%s/%s", SCRIPT_DIR, script_name);
 
-    if (access(script_path, X_OK) != 0) {
+    /* Checa R_OK (não X_OK): o daemon executa via "/system/bin/sh script",
+     * que precisa que o script seja LEGÍVEL — não executável. O prebuilt_etc
+     * do AOSP instala scripts como 0644 (sem bit x). */
+    if (access(script_path, R_OK) != 0) {
         char msg[600];
         snprintf(msg, sizeof(msg),
                  "[DAEMON] Script nao encontrado ou sem permissao de execucao: %s (%s)\n",

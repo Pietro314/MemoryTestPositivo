@@ -11,9 +11,9 @@
 #   binário fisicamente fique em /system_ext/bin/. SELinux usa o label
 #   atribuído pelo file_contexts, não o caminho do arquivo.
 
-type memtest_daemon, domain, coredomain;
+type memtest_daemon, domain, coredomain, mlstrustedsubject;
 type memtest_daemon_exec, exec_type, system_file_type, file_type;
-type memtest_daemon_socket, file_type;
+type memtest_daemon_socket, file_type, mlstrustedobject;
 
 # Domain transition a partir do init (gera entrypoint allow)
 init_daemon_domain(memtest_daemon);
