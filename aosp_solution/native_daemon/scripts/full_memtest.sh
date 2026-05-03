@@ -126,25 +126,34 @@ log_debug() {
     log "  [DEBUG] $*"
 }
 
+log_debug_file() {
+    # Igual ao log_debug, mas só escreve no arquivo de log — nunca em stdout.
+    # Use dentro de funções que retornam valor via stdout (read_first_file,
+    # find_first_file, log_file_value) e em blocos de detecção verbosos
+    # cujo output polui o relatório visto pelo usuário (ex.: tentativas de UFS).
+    echo "  [DEBUG] $*" >> "$LOGFILE"
+}
+
 log_warn() {
     log "  ⚠️  WARNING: $*"
 }
 
 log_file_value() {
     # Uso: log_file_value "Label" "/path/file"
+    # Função retorna valor via stdout — usa log_debug_file para não poluir.
     local label="$1"
     local file="$2"
     local val=""
 
     if [ -f "$file" ]; then
         val=$(cat "$file" 2>/dev/null)
-        log_debug "$label: arquivo encontrado: $file"
-        log_debug "$label: valor lido: ${val:-<vazio>}"
+        log_debug_file "$label: arquivo encontrado: $file"
+        log_debug_file "$label: valor lido: ${val:-<vazio>}"
         echo "$val"
         return 0
     fi
 
-    log_debug "$label: arquivo não existe: $file"
+    log_debug_file "$label: arquivo não existe: $file"
     return 1
 }
 
@@ -226,32 +235,35 @@ lifetime_warn() {
 read_first_file() {
     # Lê o primeiro arquivo existente de uma lista de caminhos.
     # Uso: read_first_file /path/a /path/b ...
+    # IMPORTANTE: retorna valor via stdout. Usa log_debug_file para não
+    # contaminar o valor capturado em $(read_first_file ...).
     local f
     local val
 
     for f in "$@"; do
-        log_debug "read_first_file: testando $f"
+        log_debug_file "read_first_file: testando $f"
         if [ -f "$f" ]; then
             val=$(cat "$f" 2>/dev/null)
-            log_debug "read_first_file: escolhido $f"
-            log_debug "read_first_file: valor='${val:-<vazio>}'"
+            log_debug_file "read_first_file: escolhido $f"
+            log_debug_file "read_first_file: valor='${val:-<vazio>}'"
             echo "$val"
             return 0
         fi
     done
 
-    log_debug "read_first_file: nenhum arquivo encontrado"
+    log_debug_file "read_first_file: nenhum arquivo encontrado"
     return 1
 }
 
 find_first_file() {
     # Procura arquivo por nome em /sys, escondendo Permission denied.
     # Uso: find_first_file life_time
+    # Retorna valor via stdout — usa log_debug_file para não poluir.
     local name="$1"
     local found
-    log_debug "find_first_file: procurando em /sys por name='$name'"
+    log_debug_file "find_first_file: procurando em /sys por name='$name'"
     found=$(find /sys -name "$name" 2>/dev/null | head -n1)
-    log_debug "find_first_file: resultado='${found:-<não encontrado>}'"
+    log_debug_file "find_first_file: resultado='${found:-<não encontrado>}'"
     echo "$found"
 }
 
@@ -322,32 +334,35 @@ CID_PATH=""
 UFS_HEALTH_DIR=""
 UFS_CANDIDATE=""
 
-log_debug "Iniciando detecção de storage. Ordem: UFS primeiro, depois MMC/eMMC."
+# Detecção silenciosa: tenta UFS, depois MMC/eMMC. O usuário só vê o tipo
+# que foi efetivamente detectado — mensagens de tentativa/falha vão pro
+# arquivo de log para diagnóstico, mas não aparecem no relatório.
+log_debug_file "Iniciando detecção de storage. Ordem: UFS primeiro, depois MMC/eMMC."
 
 # ---------- UFS ----------
-log_debug "Procurando UFS health_descriptor em caminhos comuns."
+log_debug_file "Procurando UFS health_descriptor em caminhos comuns."
 for d in \
     /sys/devices/platform/soc/*ufs*/health_descriptor \
     /sys/bus/platform/devices/*ufs*/health_descriptor
     do
-        log_debug "Testando UFS health dir: $d"
+        log_debug_file "Testando UFS health dir: $d"
         if [ -d "$d" ]; then
             UFS_HEALTH_DIR="$d"
-            log_debug "UFS health_descriptor encontrado: $UFS_HEALTH_DIR"
+            log_debug_file "UFS health_descriptor encontrado: $UFS_HEALTH_DIR"
             break
         fi
     done
 
 if [ -z "$UFS_HEALTH_DIR" ]; then
-    log_debug "UFS health_descriptor não encontrado nos caminhos comuns. Usando find fallback."
+    log_debug_file "UFS health_descriptor não encontrado nos caminhos comuns. Usando find fallback."
     UFS_HEALTH_DIR=$(find /sys -maxdepth 8 -path "*/health_descriptor" -type d 2>/dev/null | head -n1)
-    log_debug "Resultado find UFS_HEALTH_DIR='${UFS_HEALTH_DIR:-<não encontrado>}'"
+    log_debug_file "Resultado find UFS_HEALTH_DIR='${UFS_HEALTH_DIR:-<não encontrado>}'"
 fi
 
 if [ -n "$UFS_HEALTH_DIR" ] && [ -d "$UFS_HEALTH_DIR" ]; then
     TYPE="UFS"
     UFS_CANDIDATE=$(dirname "$UFS_HEALTH_DIR")
-    log_debug "Storage detectado como UFS. Base=$UFS_CANDIDATE"
+    log_debug_file "Storage detectado como UFS. Base=$UFS_CANDIDATE"
 
     LIFE_A=$(cat "$UFS_HEALTH_DIR/life_time_estimation_a" 2>/dev/null)
     LIFE_B=$(cat "$UFS_HEALTH_DIR/life_time_estimation_b" 2>/dev/null)
@@ -355,9 +370,9 @@ if [ -n "$UFS_HEALTH_DIR" ] && [ -d "$UFS_HEALTH_DIR" ]; then
     LIFE_SOURCE="$UFS_HEALTH_DIR/life_time_estimation_a + life_time_estimation_b"
     PRE_EOL_SOURCE="$UFS_HEALTH_DIR/pre_eol_info"
 
-    log_debug "UFS LIFE_A raw='${LIFE_A:-<vazio>}'"
-    log_debug "UFS LIFE_B raw='${LIFE_B:-<vazio>}'"
-    log_debug "UFS PRE_EOL raw='${PRE_EOL:-<vazio>}'"
+    log_debug_file "UFS LIFE_A raw='${LIFE_A:-<vazio>}'"
+    log_debug_file "UFS LIFE_B raw='${LIFE_B:-<vazio>}'"
+    log_debug_file "UFS PRE_EOL raw='${PRE_EOL:-<vazio>}'"
 
     [ -z "$LIFE_A" ] && LIFE_A="N/A"
     [ -z "$LIFE_B" ] && LIFE_B="N/A"
@@ -365,28 +380,28 @@ if [ -n "$UFS_HEALTH_DIR" ] && [ -d "$UFS_HEALTH_DIR" ]; then
 
     STOR_MODEL=$(cat "$UFS_CANDIDATE/string_descriptors/product_name" 2>/dev/null)
     VENDOR=$(cat "$UFS_CANDIDATE/string_descriptors/manufacturer_name" 2>/dev/null)
-    log_debug "UFS product_name='${STOR_MODEL:-<vazio>}'"
-    log_debug "UFS manufacturer_name='${VENDOR:-<vazio>}'"
+    log_debug_file "UFS product_name='${STOR_MODEL:-<vazio>}'"
+    log_debug_file "UFS manufacturer_name='${VENDOR:-<vazio>}'"
     [ -z "$STOR_MODEL" ] && STOR_MODEL="N/A"
     [ -z "$VENDOR" ] && VENDOR="N/A"
 else
-    log_debug "UFS não detectado. Continuando para MMC/eMMC."
+    log_debug_file "UFS não detectado. Continuando para MMC/eMMC."
 fi
 
 # ---------- MMC/eMMC ----------
 if [ "$TYPE" = "UNKNOWN" ]; then
-    log_debug "Procurando CID de MMC/eMMC em /sys/class/mmc_host/mmc*/mmc*:*/cid"
+    log_debug_file "Procurando CID de MMC/eMMC em /sys/class/mmc_host/mmc*/mmc*:*/cid"
     CID_PATH=$(ls /sys/class/mmc_host/mmc*/mmc*:*/cid 2>/dev/null | head -n1)
-    log_debug "CID_PATH após caminho clássico='${CID_PATH:-<não encontrado>}'"
+    log_debug_file "CID_PATH após caminho clássico='${CID_PATH:-<não encontrado>}'"
 
     if [ -z "$CID_PATH" ]; then
-        log_debug "CID não encontrado no caminho clássico. Tentando /sys/block/mmcblk*/device/cid"
+        log_debug_file "CID não encontrado no caminho clássico. Tentando /sys/block/mmcblk*/device/cid"
         CID_PATH=$(ls /sys/block/mmcblk*/device/cid 2>/dev/null | head -n1)
-        log_debug "CID_PATH após /sys/block='${CID_PATH:-<não encontrado>}'"
+        log_debug_file "CID_PATH após /sys/block='${CID_PATH:-<não encontrado>}'"
     fi
 
     if [ -z "$CID_PATH" ]; then
-        log_debug "CID ainda não encontrado. Usando find_first_file cid"
+        log_debug_file "CID ainda não encontrado. Usando find_first_file cid"
         CID_PATH=$(find_first_file cid)
     fi
 
@@ -395,21 +410,21 @@ if [ "$TYPE" = "UNKNOWN" ]; then
         MMC_DEV_PATH=$(dirname "$CID_PATH")
         CID=$(cat "$CID_PATH" 2>/dev/null)
 
-        log_debug "Storage detectado como MMC/eMMC"
-        log_debug "CID_PATH=$CID_PATH"
-        log_debug "MMC_DEV_PATH=$MMC_DEV_PATH"
-        log_debug "CID='${CID:-<vazio>}'"
+        log_debug_file "Storage detectado como MMC/eMMC"
+        log_debug_file "CID_PATH=$CID_PATH"
+        log_debug_file "MMC_DEV_PATH=$MMC_DEV_PATH"
+        log_debug_file "CID='${CID:-<vazio>}'"
 
         STOR_MODEL=$(read_first_file "$MMC_DEV_PATH/name" /sys/block/mmcblk*/device/name)
         VENDOR_ID=$(read_first_file "$MMC_DEV_PATH/manfid" /sys/block/mmcblk*/device/manfid)
-        log_debug "STOR_MODEL inicial via sysfs='${STOR_MODEL:-<vazio>}'"
-        log_debug "VENDOR_ID inicial via sysfs='${VENDOR_ID:-<vazio>}'"
+        log_debug_file "STOR_MODEL inicial via sysfs='${STOR_MODEL:-<vazio>}'"
+        log_debug_file "VENDOR_ID inicial via sysfs='${VENDOR_ID:-<vazio>}'"
 
         if [ -n "$CID" ]; then
             MID=$(echo "$CID" | cut -c1-2)
             PNM_HEX=$(echo "$CID" | cut -c5-14)
             CID_MODEL=$(printf "$(echo "$PNM_HEX" | sed 's/\(..\)/\\x\1/g')" 2>/dev/null)
-            log_debug "CID parse: MID=$MID, PNM_HEX=$PNM_HEX, CID_MODEL='${CID_MODEL:-<vazio>}'"
+            log_debug_file "CID parse: MID=$MID, PNM_HEX=$PNM_HEX, CID_MODEL='${CID_MODEL:-<vazio>}'"
             [ -z "$STOR_MODEL" ] && STOR_MODEL="$CID_MODEL"
             [ -z "$VENDOR_ID" ] && VENDOR_ID="MID:$MID"
         fi
@@ -418,7 +433,7 @@ if [ "$TYPE" = "UNKNOWN" ]; then
         [ -z "$VENDOR_ID" ] && VENDOR_ID="N/A"
         VENDOR="$VENDOR_ID"
 
-        log_debug "Tentando Life Time por arquivos separados de vendor."
+        log_debug_file "Tentando Life Time por arquivos separados de vendor."
         LIFE_A=$(read_first_file \
             "$MMC_DEV_PATH/life_time_type_a" \
             "$MMC_DEV_PATH/life_time_estimation_a" \
@@ -441,7 +456,7 @@ if [ "$TYPE" = "UNKNOWN" ]; then
         [ -z "$LIFE_A" ] && LIFE_A="N/A"
         [ -z "$LIFE_B" ] && LIFE_B="N/A"
 
-        log_debug "Após arquivos separados: LIFE_A=$LIFE_A, LIFE_B=$LIFE_B, LIFE_SOURCE=$LIFE_SOURCE"
+        log_debug_file "Após arquivos separados: LIFE_A=$LIFE_A, LIFE_B=$LIFE_B, LIFE_SOURCE=$LIFE_SOURCE"
 
         # Caso 2: padrão comum em kernels Linux/Allwinner:
         # arquivo único life_time, exemplo: "0x04 0x03".
@@ -449,36 +464,36 @@ if [ "$TYPE" = "UNKNOWN" ]; then
             LIFE_RAW=""
             LIFE_TIME_FILE=""
 
-            log_debug "Life Time separado incompleto. Tentando arquivo único life_time."
+            log_debug_file "Life Time separado incompleto. Tentando arquivo único life_time."
 
             if [ -f "$MMC_DEV_PATH/life_time" ]; then
                 LIFE_TIME_FILE="$MMC_DEV_PATH/life_time"
                 LIFE_RAW=$(cat "$LIFE_TIME_FILE" 2>/dev/null)
-                log_debug "life_time encontrado via MMC_DEV_PATH: $LIFE_TIME_FILE"
-                log_debug "LIFE_RAW='$LIFE_RAW'"
+                log_debug_file "life_time encontrado via MMC_DEV_PATH: $LIFE_TIME_FILE"
+                log_debug_file "LIFE_RAW='$LIFE_RAW'"
             fi
 
             if [ -z "$LIFE_RAW" ]; then
-                log_debug "Tentando life_time via /sys/block/mmcblk*/device/life_time"
+                log_debug_file "Tentando life_time via /sys/block/mmcblk*/device/life_time"
                 for f in /sys/block/mmcblk*/device/life_time; do
-                    log_debug "Testando $f"
+                    log_debug_file "Testando $f"
                     if [ -f "$f" ]; then
                         LIFE_TIME_FILE="$f"
                         LIFE_RAW=$(cat "$f" 2>/dev/null)
-                        log_debug "Arquivo life_time escolhido: $f"
-                        log_debug "LIFE_RAW='$LIFE_RAW'"
+                        log_debug_file "Arquivo life_time escolhido: $f"
+                        log_debug_file "LIFE_RAW='$LIFE_RAW'"
                         [ -n "$LIFE_RAW" ] && break
                     fi
                 done
             fi
 
             if [ -z "$LIFE_RAW" ]; then
-                log_debug "Tentando life_time via find_first_file"
+                log_debug_file "Tentando life_time via find_first_file"
                 LIFE_TIME_FILE=$(find_first_file life_time)
                 if [ -n "$LIFE_TIME_FILE" ] && [ -f "$LIFE_TIME_FILE" ]; then
                     LIFE_RAW=$(cat "$LIFE_TIME_FILE" 2>/dev/null)
-                    log_debug "Arquivo life_time escolhido via find: $LIFE_TIME_FILE"
-                    log_debug "LIFE_RAW='$LIFE_RAW'"
+                    log_debug_file "Arquivo life_time escolhido via find: $LIFE_TIME_FILE"
+                    log_debug_file "LIFE_RAW='$LIFE_RAW'"
                 fi
             fi
 
@@ -486,17 +501,17 @@ if [ "$TYPE" = "UNKNOWN" ]; then
                 LIFE_A_TMP=$(echo "$LIFE_RAW" | awk '{print $1}')
                 LIFE_B_TMP=$(echo "$LIFE_RAW" | awk '{print $2}')
 
-                log_debug "Parse LIFE_RAW: LIFE_A_TMP='$LIFE_A_TMP', LIFE_B_TMP='$LIFE_B_TMP'"
+                log_debug_file "Parse LIFE_RAW: LIFE_A_TMP='$LIFE_A_TMP', LIFE_B_TMP='$LIFE_B_TMP'"
 
                 [ -n "$LIFE_A_TMP" ] && LIFE_A="$LIFE_A_TMP"
                 [ -n "$LIFE_B_TMP" ] && LIFE_B="$LIFE_B_TMP"
                 LIFE_SOURCE="$LIFE_TIME_FILE"
             else
-                log_debug "Nenhum life_time encontrado ou lido. LifeTime permanecerá N/A."
+                log_debug_file "Nenhum life_time encontrado ou lido. LifeTime permanecerá N/A."
             fi
         fi
 
-        log_debug "Tentando Pre-EOL."
+        log_debug_file "Tentando Pre-EOL."
         PRE_EOL=$(read_first_file \
             "$MMC_DEV_PATH/pre_eol_info" \
             /sys/block/mmcblk*/device/pre_eol_info)
@@ -506,12 +521,12 @@ if [ "$TYPE" = "UNKNOWN" ]; then
         fi
 
         if [ -z "$PRE_EOL" ]; then
-            log_debug "Pre-EOL não encontrado em caminhos diretos. Usando find_first_file."
+            log_debug_file "Pre-EOL não encontrado em caminhos diretos. Usando find_first_file."
             PRE_EOL_FILE=$(find_first_file pre_eol_info)
             if [ -n "$PRE_EOL_FILE" ] && [ -f "$PRE_EOL_FILE" ]; then
                 PRE_EOL=$(cat "$PRE_EOL_FILE" 2>/dev/null)
                 PRE_EOL_SOURCE="$PRE_EOL_FILE"
-                log_debug "PRE_EOL via find: file=$PRE_EOL_FILE, value='$PRE_EOL'"
+                log_debug_file "PRE_EOL via find: file=$PRE_EOL_FILE, value='$PRE_EOL'"
             fi
         fi
 
@@ -519,7 +534,7 @@ if [ "$TYPE" = "UNKNOWN" ]; then
         [ -z "$LIFE_B" ] && LIFE_B="N/A"
         [ -z "$PRE_EOL" ] && PRE_EOL="N/A"
     else
-        log_debug "Nenhum CID válido encontrado. Storage permanece TYPE=UNKNOWN."
+        log_debug_file "Nenhum CID válido encontrado. Storage permanece TYPE=UNKNOWN."
     fi
 fi
 
@@ -541,21 +556,26 @@ fi
 STOR_GB="N/A"
 if [ -n "$STOR_BLOCK" ] && [ -e "$STOR_BLOCK" ]; then
     STOR_BYTES=$(blockdev --getsize64 "$STOR_BLOCK" 2>/dev/null)
-    log_debug "blockdev --getsize64 $STOR_BLOCK => '${STOR_BYTES:-<vazio>}'"
-    if [ -n "$STOR_BYTES" ] && [ "$STOR_BYTES" -gt 0 ] 2>/dev/null; then
-        STOR_GB=$(( STOR_BYTES / 1024 / 1024 / 1024 ))
+    log_debug_file "blockdev --getsize64 $STOR_BLOCK => '${STOR_BYTES:-<vazio>}'"
+    # Usa awk (aritmética 64-bit) em vez de $(( )) — o shell embarcado
+    # do Android (mksh) usa inteiros 32-bit e estouraria com chips >= 4GB,
+    # caindo no fallback errado e reportando o tamanho da partição /data
+    # em vez do tamanho físico do chip.
+    if [ -n "$STOR_BYTES" ]; then
+        STOR_GB=$(awk -v b="$STOR_BYTES" 'BEGIN { if (b+0 > 0) printf "%d", b/1024/1024/1024 }')
+        [ -z "$STOR_GB" ] && STOR_GB="N/A"
     fi
 else
-    log_debug "STOR_BLOCK não encontrado ou não existe. Pulando blockdev."
+    log_debug_file "STOR_BLOCK não encontrado ou não existe. Pulando blockdev."
 fi
 
 if [ "$STOR_GB" = "N/A" ] || [ "$STOR_GB" = "0" ]; then
-    log_debug "Capacidade via blockdev indisponível. Usando df /data."
+    log_debug_file "Capacidade via blockdev indisponível. Usando df /data."
     DF_KB=$(df /data 2>/dev/null | awk 'NR==2{print $2}')
-    log_debug "df /data total KB='${DF_KB:-<vazio>}'"
+    log_debug_file "df /data total KB='${DF_KB:-<vazio>}'"
     if [ -n "$DF_KB" ] && [ "$DF_KB" -gt 0 ] 2>/dev/null; then
-        STOR_GB=$(( DF_KB / 1024 / 1024 ))
-        [ "$STOR_GB" -eq 0 ] && STOR_GB=1
+        STOR_GB=$(awk -v k="$DF_KB" 'BEGIN { printf "%d", k/1024/1024 }')
+        [ -z "$STOR_GB" ] || [ "$STOR_GB" = "0" ] && STOR_GB=1
     fi
 fi
 
@@ -563,14 +583,20 @@ log "  Type        : $TYPE"
 log "  Vendor      : $VENDOR"
 log "  Model       : $STOR_MODEL"
 log "  Capacity    : ${STOR_GB}GB"
-log "  Life source : $LIFE_SOURCE"
-log "  EOL source  : $PRE_EOL_SOURCE"
+# Só mostra a origem dos campos de saúde quando temos dado real — evita
+# linhas com "N/A" que confundem o leitor sem agregar informação.
+if [ "$LIFE_A" != "N/A" ] || [ "$LIFE_B" != "N/A" ]; then
+    log "  Life source : $LIFE_SOURCE"
+fi
+if [ "$PRE_EOL" != "N/A" ]; then
+    log "  EOL source  : $PRE_EOL_SOURCE"
+fi
 
 lifetime_warn "LifeTimeA" "$LIFE_A"
 lifetime_warn "LifeTimeB" "$LIFE_B"
 
 PRE_EOL_DEC=$(to_dec "$PRE_EOL")
-log_debug "Pre-EOL: valor bruto='$PRE_EOL', decimal='${PRE_EOL_DEC:-N/A}'"
+log_debug_file "Pre-EOL: valor bruto='$PRE_EOL', decimal='${PRE_EOL_DEC:-N/A}'"
 case "$PRE_EOL" in
     "N/A"|"0x01"|"1")
         log "  Pre-EOL     : $PRE_EOL (normal)" ;;
