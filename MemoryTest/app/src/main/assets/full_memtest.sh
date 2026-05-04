@@ -1,29 +1,24 @@
 #!/system/bin/sh
 # ==============================================================
-#  ROOT RE-EXEC GUARD
-#  Se o script for iniciado pelo APK sem root, ele tenta reiniciar
-#  a si mesmo como root usando: su 0 sh <script>.
-#  Isso só funciona em builds que possuem su permitido, ex: userdebug/eng.
+#  ROOT RE-EXEC GUARD (best-effort)
+#  Se o script for iniciado pelo APK sem root, tenta elevar via
+#  `su 0`. Se nao houver su (caso comum em userdebug stock que
+#  apenas roda `adb root` + setenforce 0), continua sem root —
+#  passos que precisam de root reportam como skip mas o script
+#  nao aborta.
 # ==============================================================
 
-REQUIRE_ROOT="1"
 ROOT_REEXEC_DONE="${ROOT_REEXEC_DONE:-0}"
 CURRENT_UID=$(id -u 2>/dev/null)
 [ -z "$CURRENT_UID" ] && CURRENT_UID=$(id 2>/dev/null | sed 's/uid=//;s/(.*//;s/ .*//')
 
-if [ "$REQUIRE_ROOT" = "1" ] && [ "$CURRENT_UID" != "0" ]; then
-    echo "[BOOTSTRAP] Script iniciado sem root. UID atual: ${CURRENT_UID:-desconhecido}"
-    echo "[BOOTSTRAP] Tentando reiniciar como root usando su 0..."
-
-    if [ "$ROOT_REEXEC_DONE" = "1" ]; then
-        echo "[BOOTSTRAP][ERRO] Já foi feita uma tentativa de su, mas o script ainda não está como root. Abortando."
-        exit 126
-    fi
+if [ "$CURRENT_UID" != "0" ] && [ "$ROOT_REEXEC_DONE" = "0" ]; then
+    echo "[BOOTSTRAP] UID=$CURRENT_UID (nao-root). Tentando elevar via su 0..."
 
     SELF_PATH="$0"
     if [ ! -f "$SELF_PATH" ]; then
-        # fallback comum quando o script é chamado de formas diferentes
-        SELF_PATH="/data/user/0/com.factory.memorytest/files/full_memtest.sh"
+        # fallback se $0 for relativo
+        SELF_PATH="/data/user/0/com.factory.memorytest/files/scripts/full_memtest.sh"
     fi
 
     SU_BIN=""
@@ -34,20 +29,14 @@ if [ "$REQUIRE_ROOT" = "1" ] && [ "$CURRENT_UID" != "0" ]; then
         fi
     done
 
-    if [ -z "$SU_BIN" ]; then
-        echo "[BOOTSTRAP][ERRO] su não encontrado. O script precisa de root para executar todos os testes."
-        echo "[BOOTSTRAP][ERRO] Em userdebug, teste pelo CMD/terminal: adb root ou adb shell su 0 id"
-        exit 126
+    if [ -n "$SU_BIN" ]; then
+        echo "[BOOTSTRAP] su encontrado em $SU_BIN. Reexecutando."
+        export ROOT_REEXEC_DONE=1
+        exec "$SU_BIN" 0 sh "$SELF_PATH" "$@"
+        echo "[BOOTSTRAP][AVISO] exec su retornou inesperadamente. Continuando sem root."
+    else
+        echo "[BOOTSTRAP] su nao disponivel. Continuando sem root — alguns testes podem reportar skip."
     fi
-
-    echo "[BOOTSTRAP] su encontrado em: $SU_BIN"
-    echo "[BOOTSTRAP] Reexecutando: $SU_BIN 0 sh $SELF_PATH $*"
-
-    export ROOT_REEXEC_DONE="1"
-    exec "$SU_BIN" 0 sh "$SELF_PATH" "$@"
-
-    echo "[BOOTSTRAP][ERRO] Falha ao executar su."
-    exit 126
 fi
 
 if [ "$CURRENT_UID" = "0" ]; then
