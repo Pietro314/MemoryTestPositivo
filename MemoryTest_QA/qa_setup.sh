@@ -51,12 +51,35 @@ case "$ABI" in
     *) err "ABI desconhecida do device: '$ABI'. Suportado: arm64-v8a, armeabi-v7a." ;;
 esac
 
-# Resolve paths do APK e memtester
-APK="${APK_ARG:-$SCRIPT_DIR/app-release.apk}"
-MEMTESTER="${MEMTESTER_ARG:-$SCRIPT_DIR/memtester-${ARCH}}"
+# Resolve path do APK: arg explicito > app-release.apk > unico .apk na pasta
+if [ -n "$APK_ARG" ]; then
+    APK="$APK_ARG"
+elif [ -f "$SCRIPT_DIR/app-release.apk" ]; then
+    APK="$SCRIPT_DIR/app-release.apk"
+else
+    apk_count=$(ls "$SCRIPT_DIR"/*.apk 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$apk_count" = "1" ]; then
+        APK=$(ls "$SCRIPT_DIR"/*.apk)
+    elif [ "$apk_count" = "0" ]; then
+        err "Nenhum .apk encontrado em $SCRIPT_DIR"
+    else
+        err "Multiplos .apk em $SCRIPT_DIR — passa o caminho como 1o argumento"
+    fi
+fi
 
-[ -f "$APK" ]       || err "APK não encontrado em: $APK"
-[ -f "$MEMTESTER" ] || err "memtester não encontrado em: $MEMTESTER (device é $ARCH)"
+# Resolve path do memtester: arg explicito > memtester-<arch> > memtester
+if [ -n "$MEMTESTER_ARG" ]; then
+    MEMTESTER="$MEMTESTER_ARG"
+elif [ -f "$SCRIPT_DIR/memtester-${ARCH}" ]; then
+    MEMTESTER="$SCRIPT_DIR/memtester-${ARCH}"
+elif [ -f "$SCRIPT_DIR/memtester" ]; then
+    MEMTESTER="$SCRIPT_DIR/memtester"
+else
+    err "memtester nao encontrado (esperado memtester-${ARCH} ou memtester em $SCRIPT_DIR)"
+fi
+
+[ -f "$APK" ]       || err "APK nao acessivel: $APK"
+[ -f "$MEMTESTER" ] || err "memtester nao acessivel: $MEMTESTER"
 
 STEPS=6
 
