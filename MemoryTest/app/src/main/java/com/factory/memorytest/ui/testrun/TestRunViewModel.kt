@@ -10,9 +10,9 @@ import com.factory.memorytest.data.db.TestRunEntity
 import com.factory.memorytest.data.db.TestStepEntity
 import com.factory.memorytest.domain.DeviceProfile
 import com.factory.memorytest.domain.ScriptType
-import com.factory.memorytest.service.DaemonClient
-import com.factory.memorytest.service.DaemonEvent
+import com.factory.memorytest.service.RunnerEvent
 import com.factory.memorytest.service.ScriptOutputParser
+import com.factory.memorytest.service.ScriptRunner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -90,9 +90,9 @@ class TestRunViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         collectJob = viewModelScope.launch {
-            val client = DaemonClient()
+            val runner = ScriptRunner(getApplication())
             try {
-                client.runScript(type, profile).collectLatest { event ->
+                runner.runScript(type, profile).collectLatest { event ->
                     handleEvent(event, profile, type, newRunId)
                 }
             } catch (e: Exception) {
@@ -103,29 +103,23 @@ class TestRunViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private suspend fun handleEvent(
-        event: DaemonEvent,
+        event: RunnerEvent,
         profile: DeviceProfile,
         type: ScriptType,
         runId: Long,
     ) {
         when (event) {
-            is DaemonEvent.Line -> {
+            is RunnerEvent.Line -> {
                 appendLog(event.text + "\n")
                 val newState = parser?.feed(event.text) ?: return
                 parserState.postValue(newState)
             }
-            is DaemonEvent.Exit -> {
+            is RunnerEvent.Exit -> {
                 onFinish(event.code, profile, type, runId)
             }
-            is DaemonEvent.Error -> {
-                appendLog("\n[APP] Erro de comunicação: ${event.message}\n")
+            is RunnerEvent.Error -> {
+                appendLog("\n[APP] Erro de execução: ${event.message}\n")
                 onFinish(null, profile, type, runId)
-            }
-            DaemonEvent.Closed -> {
-                // se chegou aqui sem EXIT, finalizamos com null
-                if (phase.value == Phase.RUNNING) {
-                    onFinish(null, profile, type, runId)
-                }
             }
         }
     }

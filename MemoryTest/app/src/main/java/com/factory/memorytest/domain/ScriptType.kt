@@ -1,23 +1,23 @@
 package com.factory.memorytest.domain
 
 /**
- * Catalogo dos scripts disponiveis. Fonte unica de verdade para nomes
- * e mapeamento entre o comando do daemon e o que mostrar pro usuario.
+ * Catalogo dos scripts disponiveis. Cada entrada aponta para um asset
+ * embarcado no APK que e extraido pra filesDir/scripts/ em runtime.
  */
 enum class ScriptType(
-    val daemonCommand: String,
     val displayName: String,
     val shortLabel: String,
+    val assetName: String,
 ) {
     FACTORY(
-        daemonCommand = "RUN full_memtest",
         displayName = "Teste padrão de fábrica",
         shortLabel = "FACTORY",
+        assetName = "full_memtest.sh",
     ),
     DEEP_RAM(
-        daemonCommand = "RUN ram_diagnostic",
         displayName = "Diagnóstico profundo de RAM",
         shortLabel = "DEEP_RAM",
+        assetName = "ram_diagnostic_deep_verbose_root_exec.sh",
     );
 
     companion object {
