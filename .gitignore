@@ -23,6 +23,9 @@ captures/
 *.dex
 *.class
 
+# Excecao — APK do pacote QA eh versionado de proposito
+!MemoryTest_QA/*.apk
+
 # Logs and temp
 *.log
 *.tmp
