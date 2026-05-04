@@ -53,10 +53,11 @@ Manda o `.zip` pro time de QA. Eles descompactam e seguem.
 3. Conecta o device userdebug via USB
 4. Roda:
    ```bash
-   chmod +x qa_setup.sh
-   ./qa_setup.sh
+   bash qa_setup.sh
    ```
 5. Abre o app **Memory Test** no device e roda os testes
+
+> **Nota:** se preferir `./qa_setup.sh`, pode ser preciso rodar `chmod +x qa_setup.sh` antes — especialmente em Windows (a flag de executável se perde ao descompactar). Usar `bash qa_setup.sh` evita isso.
 
 O cabo USB pode até desconectar depois do setup. O script:
 - Detecta automaticamente a arquitetura do device (arm64/arm32)
