@@ -43,3 +43,12 @@ aosp_solution/native_daemon/build/
 
 # VS Code
 .vscode/
+
+# Outputs gerados em runtime pelos pacotes QA (por-execucao, nao versionar)
+MemoryTest_QA_ScriptOnly_v*/reports/preinfo_*
+MemoryTest_QA_ScriptOnly_v*/results/
+MemoryTest_QA_ScriptOnly_v*/run_*.log
+MemoryTest_QA/qa_setup_*.log
+
+# Handoff bundles (transferencias entre maquinas, nao precisam de git)
+memorytest_handoff_*.zip

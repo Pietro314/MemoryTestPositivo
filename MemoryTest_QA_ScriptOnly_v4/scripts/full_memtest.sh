@@ -18,7 +18,7 @@ if [ "$CURRENT_UID" != "0" ] && [ "$ROOT_REEXEC_DONE" = "0" ]; then
     SELF_PATH="$0"
     if [ ! -f "$SELF_PATH" ]; then
         # fallback se $0 for relativo
-        SELF_PATH="/data/user/0/com.factory.memorytest/files/scripts/full_memtest.sh"
+        SELF_PATH="/data/local/tmp/memtest_work/full_memtest.sh"
     fi
 
     SU_BIN=""
@@ -62,7 +62,7 @@ fi
 #  - Teste de RAM rápido com timeout; stress paralelo infinito removido
 # ==============================================================
 
-WORKDIR="/data/data/com.factory.memorytest/files/memtest_work"
+WORKDIR="/data/local/tmp/memtest_work"
 RESULT="PASS"
 FAIL_REASONS=""
 START_TIME=$(date +%s)
