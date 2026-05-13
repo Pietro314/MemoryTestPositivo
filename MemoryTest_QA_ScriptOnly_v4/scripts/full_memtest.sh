@@ -112,7 +112,10 @@ log_kv() {
 }
 
 log_debug() {
-    log "  [DEBUG] $*"
+    # Terminal vai pro stderr pra nao poluir $(funcao) capturas.
+    # Arquivo de log continua recebendo tudo.
+    echo "  [DEBUG] $*" >&2
+    echo "  [DEBUG] $*" >> "$LOGFILE"
 }
 
 log_warn() {
@@ -471,6 +474,22 @@ if [ "$TYPE" = "UNKNOWN" ]; then
                 fi
             fi
 
+            # MTK: alguns kernels expõem em /proc/bootdevice/
+            if [ -z "$LIFE_RAW" ]; then
+                LIFE_A_MTK=$(read_first_file \
+                    /proc/bootdevice/life_time_est_typ_a \
+                    /proc/bootdevice/lifetimeA)
+                LIFE_B_MTK=$(read_first_file \
+                    /proc/bootdevice/life_time_est_typ_b \
+                    /proc/bootdevice/lifetimeB)
+                if [ -n "$LIFE_A_MTK" ] || [ -n "$LIFE_B_MTK" ]; then
+                    [ -n "$LIFE_A_MTK" ] && LIFE_A="$LIFE_A_MTK"
+                    [ -n "$LIFE_B_MTK" ] && LIFE_B="$LIFE_B_MTK"
+                    LIFE_SOURCE="/proc/bootdevice/ (MTK)"
+                    log_debug "MTK life_time encontrado: A='$LIFE_A_MTK' B='$LIFE_B_MTK'"
+                fi
+            fi
+
             if [ -n "$LIFE_RAW" ]; then
                 LIFE_A_TMP=$(echo "$LIFE_RAW" | awk '{print $1}')
                 LIFE_B_TMP=$(echo "$LIFE_RAW" | awk '{print $2}')
@@ -501,6 +520,18 @@ if [ "$TYPE" = "UNKNOWN" ]; then
                 PRE_EOL=$(cat "$PRE_EOL_FILE" 2>/dev/null)
                 PRE_EOL_SOURCE="$PRE_EOL_FILE"
                 log_debug "PRE_EOL via find: file=$PRE_EOL_FILE, value='$PRE_EOL'"
+            fi
+        fi
+
+        # MTK fallback pra Pre-EOL
+        if [ -z "$PRE_EOL" ]; then
+            PRE_EOL_MTK=$(read_first_file \
+                /proc/bootdevice/pre_eol_info \
+                /proc/bootdevice/preEOL)
+            if [ -n "$PRE_EOL_MTK" ]; then
+                PRE_EOL="$PRE_EOL_MTK"
+                PRE_EOL_SOURCE="/proc/bootdevice/ (MTK)"
+                log_debug "MTK pre_eol_info encontrado: '$PRE_EOL'"
             fi
         fi
 
@@ -597,6 +628,14 @@ fi
 if [ -z "$LPDDR_TYPE" ]; then
     LPDDR_TYPE=$(getprop vendor.boot.ddr_type 2>/dev/null)
     log_debug "getprop vendor.boot.ddr_type='${LPDDR_TYPE:-<vazio>}'"
+fi
+if [ -z "$LPDDR_TYPE" ]; then
+    # MTK: alguns kernels expõem em /proc/bootdevice/
+    LPDDR_TYPE=$(read_first_file \
+        /proc/bootdevice/dram_type \
+        /proc/bootdevice/dramType \
+        /proc/lpddr_type)
+    log_debug "LPDDR via /proc/bootdevice/='${LPDDR_TYPE:-<vazio>}'"
 fi
 if [ -z "$LPDDR_TYPE" ]; then
     LPDDR_TYPE="N/A"
