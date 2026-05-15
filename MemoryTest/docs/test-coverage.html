@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>MemoryTest — Cobertura de testes e como replicar</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #6a6a6a;
+    --accent: #0066cc;
+    --accent-soft: #e6f0fa;
+    --warn: #b35900;
+    --warn-soft: #fff4e6;
+    --ok: #2d7a2d;
+    --ok-soft: #e8f5e8;
+    --fail: #b00020;
+    --fail-soft: #fce8e9;
+    --border: #d0d0d0;
+    --code-bg: #f4f4f4;
+    --code-fg: #2d2d2d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.55;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: 100vh;
+  }
+  nav.toc {
+    background: #fff;
+    border-right: 1px solid var(--border);
+    padding: 24px 16px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    font-size: 13px;
+  }
+  nav.toc h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 12px 4px;
+    letter-spacing: 0.5px;
+  }
+  nav.toc ul { list-style: none; padding: 0; margin: 0 0 16px; }
+  nav.toc li { margin: 2px 0; }
+  nav.toc a {
+    display: block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  nav.toc a:hover { background: var(--accent-soft); color: var(--accent); }
+  main {
+    padding: 40px 56px;
+    max-width: 1100px;
+  }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 8px;
+  }
+  h2 {
+    font-size: 22px;
+    margin: 48px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--accent);
+  }
+  h3 {
+    font-size: 17px;
+    margin: 28px 0 8px;
+    color: var(--accent);
+  }
+  h4 {
+    font-size: 14px;
+    margin: 16px 0 6px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  p, ul, ol { margin: 8px 0 12px; }
+  code {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: "JetBrains Mono", Consolas, monospace;
+    font-size: 0.9em;
+  }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 14px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 13px;
+    font-family: "JetBrains Mono", Consolas, monospace;
+    border: 1px solid #e0e0e0;
+  }
+  pre code { background: transparent; padding: 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    background: #fff;
+  }
+  th, td {
+    text-align: left;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    font-size: 14px;
+    vertical-align: top;
+  }
+  th { background: #f0f0f0; font-weight: 600; }
+  .test-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+  }
+  .test-card h3 { margin-top: 0; }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-right: 6px;
+  }
+  .badge-apk    { background: #e6f0fa; color: #0050a0; }
+  .badge-script { background: #f0e6fa; color: #5a0fa0; }
+  .badge-root   { background: var(--warn-soft); color: var(--warn); }
+  .badge-norm   { background: var(--ok-soft); color: var(--ok); }
+  .badge-kernel { background: #f5e6e6; color: #b00020; }
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 12px 16px;
+    margin: 12px 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .callout.warn { border-color: var(--warn); background: var(--warn-soft); }
+  .callout.fail { border-color: var(--fail); background: var(--fail-soft); }
+  .callout.ok { border-color: var(--ok); background: var(--ok-soft); }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .kv { display: grid; grid-template-columns: 200px 1fr; gap: 4px 12px; font-size: 14px; margin: 8px 0; }
+  .kv dt { font-weight: 600; color: var(--muted); }
+  .kv dd { margin: 0; }
+  hr { border: 0; border-top: 1px solid var(--border); margin: 32px 0; }
+  .footnote { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc">
+<h2>Índice</h2>
+<ul>
+  <li><a href="#overview">Visão geral</a></li>
+  <li><a href="#modos">Modos: Factory × Deep</a></li>
+  <li><a href="#arquitetura">Arquitetura</a></li>
+  <li><a href="#prereq">Pré-requisitos AOSP</a></li>
+</ul>
+<h2>Factory test — inventário</h2>
+<ul>
+  <li><a href="#test-device">1. Device ID</a></li>
+  <li><a href="#test-storage-id">2. Storage ID</a></li>
+  <li><a href="#test-storage-health">3. Storage health</a></li>
+  <li><a href="#test-storage-cap">4. Storage capacidade</a></li>
+  <li><a href="#test-ram-info">5. RAM info</a></li>
+  <li><a href="#test-storage-speed">6. Storage I/O test</a></li>
+  <li><a href="#test-ram-memtester">7. RAM memtester (quick)</a></li>
+  <li><a href="#test-dmesg">8. Kernel log (dmesg)</a></li>
+</ul>
+<h2>Deep RAM diagnostic</h2>
+<ul>
+  <li><a href="#deep-overview">Visão do Deep</a></li>
+  <li><a href="#deep-ram-info">RAM info expandida</a></li>
+  <li><a href="#deep-memtester">Memtester profundo</a></li>
+  <li><a href="#deep-dmesg">dmesg patterns RAM</a></li>
+  <li><a href="#deep-bootstrap">Root bootstrap agressivo</a></li>
+</ul>
+<h2>Configurações</h2>
+<ul>
+  <li><a href="#permissions">Matriz de permissões</a></li>
+  <li><a href="#soc-vendor">Por SoC vendor</a></li>
+  <li><a href="#thresholds">Thresholds &amp; profiles</a></li>
+  <li><a href="#outputs">Outputs esperados</a></li>
+  <li><a href="#replicar">Replicar em outro projeto</a></li>
+</ul>
+</nav>
+
+<main>
+
+<h1>MemoryTest — Cobertura de testes e como replicar</h1>
+<p class="footnote">Documento técnico de referência. Lista todos os testes que o MemoryTest executa, qual dado cada um lê do device, quais permissões precisa e como replicar a mesma lógica em outro projeto.</p>
+
+<h2 id="overview">Visão geral</h2>
+<p>O <strong>MemoryTest</strong> é um conjunto de testes de fábrica que valida <strong>RAM</strong> e <strong>storage (eMMC/UFS)</strong> de tablets/celulares antes de ir a campo. Detecta defeitos via:</p>
+<ul>
+  <li><strong>memtester</strong> — exercício de padrões em RAM com <code>mlock</code>.</li>
+  <li><strong>Health registers</strong> do chip de storage (life_time, pre_eol_info) — lidos do sysfs.</li>
+  <li><strong>I/O test</strong> — write/read de 512 MB com integridade via md5.</li>
+  <li><strong>Kernel log</strong> — busca de erros de hardware no dmesg.</li>
+  <li><strong>getprop</strong> — identificação do device.</li>
+</ul>
+
+<div class="callout">
+  <strong>Saída do teste</strong>
+  <p>Cada execução produz <code>memtest_full_&lt;timestamp&gt;.log</code> (factory) ou <code>ram_deep_&lt;timestamp&gt;.log</code> (deep) + um <code>result.txt</code> chave=valor. Status final: <code>PASS</code> ou <code>FAIL</code> com lista de razões.</p>
+</div>
+
+<h2 id="modos">Modos de teste — Factory × Deep</h2>
+<p>O projeto tem <strong>2 scripts independentes</strong>, cada um com seu escopo. Não são variações de um mesmo teste — fazem coisas diferentes.</p>
+
+<table>
+<thead><tr><th></th><th>Factory (<code>full_memtest.sh</code>)</th><th>Deep RAM (<code>ram_diagnostic_deep_verbose_root_exec.sh</code>)</th></tr></thead>
+<tbody>
+<tr><td><strong>Propósito</strong></td><td>Go/no-go de linha de produção</td><td>Diagnóstico pesado de aparelho suspeito (bancada/RMA)</td></tr>
+<tr><td><strong>Duração típica</strong></td><td>~3 min</td><td>~15 min – 1 h</td></tr>
+<tr><td><strong>Wrapper ScriptOnly</strong></td><td><code>run_full.sh</code></td><td><code>run_deep.sh</code></td></tr>
+<tr><td><strong>Workdir APK</strong></td><td><code>/data/data/&lt;pkg&gt;/files/memtest_work/</code></td><td><code>/data/data/&lt;pkg&gt;/files/memtest_work/</code></td></tr>
+<tr><td><strong>Workdir ScriptOnly</strong></td><td><code>/data/local/tmp/memtest_work/</code></td><td><code>/data/local/tmp/memtest_work/</code></td></tr>
+<tr><td><strong>Identificação do device</strong></td><td>✅ getprop completo</td><td>✅ getprop reduzido (sem brand/device code)</td></tr>
+<tr><td><strong>Identificação de storage (CID, vendor, modelo)</strong></td><td>✅ UFS + eMMC</td><td>❌ não faz</td></tr>
+<tr><td><strong>Storage health (LifeTime, Pre-EOL)</strong></td><td>✅</td><td>❌ não faz</td></tr>
+<tr><td><strong>Storage capacidade</strong></td><td>✅</td><td>❌ não faz</td></tr>
+<tr><td><strong>Storage I/O test (dd 512 MB + md5)</strong></td><td>✅</td><td>❌ não faz</td></tr>
+<tr><td><strong>RAM info (/proc/meminfo)</strong></td><td>✅ MemTotal + MemAvailable</td><td>✅ <strong>+ MemFree, Buffers, Cached, SwapTotal/Free + dump completo</strong></td></tr>
+<tr><td><strong>Memtester</strong></td><td>~50% MemAvail, 1 loop, 600s timeout</td><td>~60% MemAvail, <strong>3 loops</strong>, <strong>3600s timeout</strong>, máx 2048 MB</td></tr>
+<tr><td><strong>Progresso do memtester</strong></td><td>1 dump final</td><td>tail das últimas 30 linhas a cada 60s</td></tr>
+<tr><td><strong>Análise dmesg</strong></td><td>I/O / mmc / ufs / hw / ecc / bad block / panic</td><td>memory corruption / hw / ecc / uncorrectable / panic / <strong>oom / page allocation failure / bad page / kernel BUG</strong></td></tr>
+<tr><td><strong>Root bootstrap</strong></td><td>Best-effort (continua sem root se não tiver <code>su</code>)</td><td>Mais agressivo (faz <code>exec su 0</code> no início; loga ERRO se não conseguir)</td></tr>
+<tr><td><strong>Stress paralelo</strong> (urandom)</td><td>❌ removido do código</td><td>❌ removido do código</td></tr>
+<tr><td><strong>Output structured</strong></td><td><code>result.txt</code></td><td><code>ram_deep_result.txt</code></td></tr>
+</tbody>
+</table>
+
+<div class="callout">
+  <strong>Quando usar cada um</strong>
+  <ul style="margin: 6px 0;">
+    <li><strong>Factory</strong>: cada device antes de sair pra cliente. Linha de produção, decisão PASS/FAIL rápida, cobertura ampla mas rasa.</li>
+    <li><strong>Deep RAM</strong>: device que veio com queixa, ou validação de lote/homologação. Cobertura profunda de RAM, sem mexer em storage.</li>
+  </ul>
+  <p style="margin-top: 8px;">Os 2 são independentes. Você pode rodar Deep depois do Factory (ou vice-versa) sem conflito — usam mesmo workdir mas arquivos com nomes diferentes.</p>
+</div>
+
+<div class="callout warn">
+  <strong>"Stress paralelo" foi removido</strong>
+  <p>Versões antigas do deep tinham um stress paralelo com <code>/dev/urandom</code> rodando junto com o memtester. Foi removido porque virava teste de horas sem critério de parada. Hoje o deep <strong>é só memtester</strong>, mas com configuração mais pesada (mais MB, mais loops, mais tempo) que o quick. A cobertura extra vem da repetição dos 16 padrões em mais memória, não de stress externo.</p>
+</div>
+
+<h2 id="arquitetura">Arquitetura — 2 caminhos vivos</h2>
+
+<table>
+<thead><tr><th>Caminho</th><th>Quem roda</th><th>UID/Contexto</th><th>Quando usar</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>APK platform-signed</strong> (Opção 3 AOSP)</td>
+  <td>APK em <code>/product/priv-app/</code> ou <code>/system/priv-app/</code>, re-assinado com <code>LOCAL_CERTIFICATE := platform</code>. Roda scripts via <code>ProcessBuilder</code>.</td>
+  <td>uid <code>system</code>, contexto <code>platform_app</code></td>
+  <td>Linha de produção, UI no device, integra com perfis Room.</td>
+</tr>
+<tr>
+  <td><strong>ScriptOnly</strong></td>
+  <td>Scripts shell rodados via <code>adb shell</code> direto do PC. Sem APK.</td>
+  <td>uid <code>shell</code> (2000), contexto <code>u:r:shell:s0</code></td>
+  <td>Bancada, debug, ou device onde APK não instala/funciona.</td>
+</tr>
+</tbody>
+</table>
+
+<p>Os <strong>scripts são compartilhados</strong> entre os dois caminhos. O APK extrai <code>assets/full_memtest.sh</code> pra <code>filesDir/scripts/</code> e roda; o ScriptOnly tem o mesmo script em <code>scripts/full_memtest.sh</code> empacotado no zip.</p>
+
+<div class="callout warn">
+  <strong>Os 2 caminhos NÃO são 100% equivalentes</strong>
+  <p>Os scripts são idênticos, mas o ambiente de execução muda — isso gera diferenças de capacidade:</p>
+  <table style="margin-top: 8px;">
+    <thead><tr><th>Aspecto</th><th>APK platform_app</th><th>ScriptOnly (shell)</th></tr></thead>
+    <tbody>
+      <tr><td><code>RLIMIT_MEMLOCK</code></td><td>unlimited <strong>garantido</strong></td><td>varia (alto em userdebug, pode ser baixo em user)</td></tr>
+      <tr><td>Grupos Unix</td><td>system, disk, media_rw, etc</td><td>shell, log, sdcard_rw, etc (sem <code>disk</code>)</td></tr>
+      <tr><td>Acesso a <code>/dev/block/*</code></td><td>frequente</td><td>raro</td></tr>
+      <tr><td>Acesso a <code>/data/system</code>, <code>/data/misc</code></td><td>sim</td><td>não</td></tr>
+      <tr><td>Escalar pra root</td><td>difícil (precisa <code>su</code>, restrito em SELinux)</td><td>fácil em userdebug (<code>adb root</code>)</td></tr>
+      <tr><td>UI/banco de dados no device</td><td>sim (Room, histórico, perfis)</td><td>não</td></tr>
+      <tr><td>Depende de modificações no AOSP</td><td>sim (build customizado)</td><td>não (roda em stock)</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top: 8px;">Pros 8 testes do projeto, num device <strong>userdebug + SELinux Permissive</strong>, a cobertura prática é equivalente porque os arquivos críticos (sysfs <code>0444</code>, <code>/proc/meminfo</code>) são world-readable. Em <strong>produção (user + Enforcing)</strong>, o APK platform_app é mais robusto.</p>
+</div>
+
+<h2 id="prereq">Pré-requisitos AOSP</h2>
+<p>Pra o caminho APK funcionar 100% (com cobertura completa), o device precisa ter na árvore AOSP:</p>
+<ol>
+  <li><code>PRODUCT_PACKAGES += memtester</code> (em <code>device.mk</code>) — binário em <code>/system/bin/memtester</code>.</li>
+  <li><code>PRODUCT_PACKAGES += MemoryTest</code> — APK em <code>/product/priv-app/MemoryTest/</code> (ou <code>/system/priv-app/</code>).</li>
+  <li>SELinux <strong>Permissive</strong>:
+    <ul>
+      <li>SPRD/Qualcomm/genérico: <code>BOARD_KERNEL_CMDLINE += androidboot.selinux=permissive</code></li>
+      <li>MTK MT6761: <code>PRJ_SELINUX_STATUS := 2</code> no project file do LK — <em>BOARD_KERNEL_CMDLINE é ignorado nesse SoC</em>.</li>
+    </ul>
+  </li>
+  <li>APK declarado como <code>android_app_import</code> em <code>Android.bp</code> ou <code>Android.mk</code> com:
+    <pre>android_app_import {
+    name: "MemoryTest",
+    apk: "MemoryTest.apk",
+    certificate: "platform",
+    privileged: true,
+    presigned: false,
+}</pre>
+  </li>
+</ol>
+
+<div class="callout warn">
+  <strong>Aprendizados importantes</strong>
+  <ul style="margin: 6px 0;">
+    <li>APK como <code>untrusted_app</code> tem <code>RLIMIT_MEMLOCK</code> baixo (~8 MB) — memtester reduz pra esse tamanho e <strong>vira fake-fast PASS enganoso</strong>. Por isso a Opção 3 (platform_app) é necessária pra teste de RAM válido.</li>
+    <li><code>adb root</code> em MTK + Windows quebra o adb-server. Em MTK preferir <code>adb shell su 0</code> ou rebuild do AOSP com SELinux já permissive.</li>
+  </ul>
+</div>
+
+<hr>
+
+<h2 id="test-device">1. Device identification</h2>
+<div class="test-card">
+  <p><span class="badge badge-apk">APK</span><span class="badge badge-script">ScriptOnly</span><span class="badge badge-norm">sem root</span><span class="badge" style="background:#e6fae6;color:#1a5a1a;">factory + deep</span></p>
+  <p><strong>O que valida:</strong> identifica o device (modelo, fabricante, build, ABI, debuggable, fingerprint). Não tem critério de PASS/FAIL — é meta-info pro relatório.</p>
+
+  <h4>Fonte de dados</h4>
+  <pre>getprop ro.serialno
+getprop ro.product.model
+getprop ro.product.brand
+getprop ro.product.device
+getprop ro.product.board
+getprop ro.product.cpu.abi
+getprop ro.hardware
+getprop ro.soc.manufacturer
+getprop ro.build.version.release
+getprop ro.build.fingerprint
+getprop ro.build.type           # user / userdebug / eng
+getprop ro.debuggable           # 0 / 1</pre>
+
+  <h4>Permissão</h4>
+  <p>Nenhuma. <code>getprop</code> é acessível por qualquer UID.</p>
+
+  <h4>Observações por vendor</h4>
+  <ul>
+    <li><strong>MTK MT6761</strong>: <code>ro.soc.manufacturer</code> retorna vazio. Usar <code>ro.hardware</code> (ex: <code>mt6761</code>) ou <code>ro.product.board</code> (ex: <code>k61v1_32_bsp_1g</code>) pra identificar SoC.</li>
+  </ul>
+</div>
+
+<h2 id="test-storage-id">2. Storage identification (vendor/modelo)</h2>
+<div class="test-card">
+  <p><span class="badge badge-apk">APK</span><span class="badge badge-script">ScriptOnly</span><span class="badge badge-norm">sem root</span><span class="badge badge-kernel">depende do kernel</span></p>
+  <p><strong>O que valida:</strong> identifica vendor e modelo do chip de memória (eMMC ou UFS). Importante pra rastreabilidade e correlação de defeitos em lote.</p>
+
+  <h4>Detecção UFS (primeiro)</h4>
+  <pre># procura health_descriptor no sysfs UFS
+/sys/devices/platform/soc/*ufs*/health_descriptor
+/sys/bus/platform/devices/*ufs*/health_descriptor
+
+# depois lê:
+&lt;base&gt;/string_descriptors/manufacturer_name    # vendor
+&lt;base&gt;/string_descriptors/product_name         # modelo</pre>
+
+  <h4>Detecção MMC/eMMC (fallback)</h4>
+  <pre># caminho clássico
+/sys/class/mmc_host/mmc*/mmc*:*/cid             # CID em hex (16 bytes)
+/sys/class/mmc_host/mmc*/mmc*:*/name            # PNM (ASCII)
+/sys/class/mmc_host/mmc*/mmc*:*/manfid          # MID (vendor)
+
+# parse manual do CID se sysfs não tiver name/manfid:
+# bytes 1-2 do CID    = MID (manufacturer ID)
+# bytes 5-14 do CID   = PNM em hex (decode ASCII)</pre>
+
+  <h4>MID conhecidos (eMMC)</h4>
+  <table>
+    <thead><tr><th>MID</th><th>Vendor</th></tr></thead>
+    <tbody>
+      <tr><td><code>0x15</code></td><td>Samsung</td></tr>
+      <tr><td><code>0x90</code></td><td>SK Hynix</td></tr>
+      <tr><td><code>0x70</code></td><td>Kingston</td></tr>
+      <tr><td><code>0x11</code></td><td>Toshiba/Kioxia</td></tr>
+      <tr><td><code>0x13</code></td><td>Micron</td></tr>
+    </tbody>
+  </table>
+
+  <h4>Permissão</h4>
+  <p>Sysfs <code>0444</code> (world-readable) em devices testados. Funciona como uid <code>shell</code> e como <code>platform_app</code>.</p>
+</div>
+
+<h2 id="test-storage-health">3. Storage health (LifeTime + Pre-EOL)</h2>
+<div class="test-card">
+  <p><span class="badge badge-apk">APK</span><span class="badge badge-script">ScriptOnly</span><span class="badge badge-norm">sem root</span><span class="badge badge-kernel">depende do driver</span></p>
+  <p><strong>O que valida:</strong> estimativa de desgaste do chip eMMC/UFS (LifeTime A/B) e proximidade do fim de vida útil (Pre-EOL). Lido do EXT_CSD do eMMC ou do Device Descriptor do UFS, exposto pelo driver kernel no sysfs.</p>
+
+  <h4>Interpretação dos valores</h4>
+  <table>
+    <thead><tr><th>Valor (hex)</th><th>LifeTime A/B (% usado)</th><th>Pre-EOL</th></tr></thead>
+    <tbody>
+      <tr><td><code>0x00</code></td><td>não definido</td><td>—</td></tr>
+      <tr><td><code>0x01</code></td><td>0–10%</td><td>Normal</td></tr>
+      <tr><td><code>0x02</code></td><td>10–20%</td><td>Warning (~80%)</td></tr>
+      <tr><td><code>0x03</code></td><td>20–30%</td><td>Crítico (esgotado)</td></tr>
+      <tr><td>...</td><td>(+10% por nível)</td><td>—</td></tr>
+      <tr><td><code>0x0A</code></td><td>90–100%</td><td>—</td></tr>
+      <tr><td><code>0x0B</code></td><td>excedido</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <h4>UFS</h4>
+  <pre>&lt;health_descriptor&gt;/life_time_estimation_a
+&lt;health_descriptor&gt;/life_time_estimation_b
+&lt;health_descriptor&gt;/pre_eol_info</pre>
+
+  <h4>eMMC/MMC — múltiplos formatos (o script tenta na ordem)</h4>
+  <ol>
+    <li><strong>Arquivos separados (Samsung/Qualcomm/etc)</strong>:
+      <pre>/sys/class/mmc_host/mmc0/mmc0:0001/life_time_type_a
+/sys/class/mmc_host/mmc0/mmc0:0001/life_time_type_b
+/sys/class/mmc_host/mmc0/mmc0:0001/life_time_estimation_a
+/sys/class/mmc_host/mmc0/mmc0:0001/life_time_estimation_b
+/sys/block/mmcblk*/device/life_time_type_a       # alguns kernels</pre>
+    </li>
+    <li><strong>Arquivo único (Allwinner / MTK MT6761)</strong>:
+      <pre>/sys/class/mmc_host/mmc0/mmc0:0001/life_time     # "0x01 0x01" (A e B separados por espaço)</pre>
+      Parse: <code>awk '{print $1}'</code> pra A, <code>awk '{print $2}'</code> pra B.
+    </li>
+    <li><strong>MTK fallback</strong> (alguns kernels MT676x antigos):
+      <pre>/proc/bootdevice/life_time_est_typ_a
+/proc/bootdevice/life_time_est_typ_b
+/proc/bootdevice/lifetimeA
+/proc/bootdevice/lifetimeB
+/proc/bootdevice/pre_eol_info</pre>
+    </li>
+  </ol>
+
+  <h4>Limitação</h4>
+  <div class="callout warn">
+    <strong>Driver MMC pode não expor</strong>
+    <p>O valor está sempre no chip (bytes 267-269 do EXT_CSD). Mas o <strong>driver MMC do kernel</strong> escolhe se cria os arquivos sysfs. Em alguns kernels MTK stock o driver não expõe. Alternativas (todas pesadas):</p>
+    <ul>
+      <li>Compilar <code>mmc-utils</code> e rodar <code>mmc extcsd read /dev/block/mmcblk0</code> — requer root (CAP_SYS_RAWIO no ioctl).</li>
+      <li>Patchar o driver MMC do kernel.</li>
+      <li>Aceitar N/A e usar só Pre-EOL como termômetro.</li>
+    </ul>
+  </div>
+</div>
+
+<h2 id="test-storage-cap">4. Storage capacidade</h2>
+<div class="test-card">
+  <p><span class="badge badge-apk">APK</span><span class="badge badge-script">ScriptOnly</span><span class="badge badge-norm">sem root</span><span class="badge" style="background:#fffce6;color:#7a6500;">factory only</span></p>
+  <p><strong>O que valida:</strong> tamanho total do storage. Comparado com <code>expectedStorageGb</code> do profile pra confirmar que o device tem a memória que devia ter.</p>
+
+  <h4>Método primário</h4>
+  <pre>STOR_BLOCK=$(readlink -f /dev/block/by-name/userdata | sed 's/p[0-9]*$//')
+blockdev --getsize64 "$STOR_BLOCK"      # bytes do device inteiro</pre>
+
+  <h4>Fallback</h4>
+  <pre>df /data | awk 'NR==2{print $2}'        # KB do /data (sub-estimado mas serve)</pre>
+
+  <h4>Permissão</h4>
+  <p><code>blockdev --getsize64</code> em <code>/dev/block/mmcblk0</code> tem permissão de leitura em <code>shell</code>/<code>system</code>. Se falhar (DAC mais restrito), cai no <code>df</code>.</p>
+</div>
+
+<h2 id="test-ram-info">5. RAM info</h2>
+<div class="test-card">
+  <p><span class="badge badge-apk">APK</span><span class="badge badge-script">ScriptOnly</span><span class="badge badge-norm">sem root</span><span class="badge" style="background:#e6fae6;color:#1a5a1a;">factory + deep (expandido)</span></p>
+  <p class="footnote" style="margin-top:0;">Deep RAM lê <strong>mais campos</strong> (MemFree, Buffers, Cached, SwapTotal, SwapFree) e gera <strong>dump completo de /proc/meminfo</strong> no log pra debug.</p>
+  <p><strong>O que valida:</strong> RAM total física + RAM disponível pro processo. Compara <code>MemTotal</code> com <code>expectedRamGb</code>. <code>MemAvailable</code> é usado pra dimensionar o teste do memtester.</p>
+
+  <h4>Fonte</h4>
+  <pre>grep MemTotal     /proc/meminfo | awk '{print $2}'   # KB
+grep MemAvailable /proc/meminfo | awk '{print $2}'   # KB</pre>
+
+  <h4>LPDDR type (best-effort)</h4>
+  <pre>getprop ro.boot.ddr_type
+getprop ro.boot.dram_type
+getprop vendor.boot.ddr_type
+cat /proc/bootdevice/dram_type      # MTK fallback</pre>
+
+  <div class="callout warn">
+    <strong>LPDDR type frequentemente N/A</strong>
+    <p>O bootloader é quem deveria popular essa property. Em muitos vendors (MTK MT6761 inclusive) ela vem vazia. Documenta-se como limitação — não invalida o teste de RAM.</p>
+  </div>
+
+  <h4>Permissão</h4>
+  <p>Nenhuma. <code>/proc/meminfo</code> é world-readable.</p>
+</div>
+
+<h2 id="test-storage-speed">6. Storage I/O test (dd)</h2>
+<div class="test-card">
+  <p><span class="badge badge-apk">APK</span><span class="badge badge-script">ScriptOnly</span><span class="badge badge-norm">sem root</span><span class="badge badge-root">root opcional</span></p>
+  <p><strong>O que valida:</strong> (1) write throughput, (2) read throughput, (3) integridade dos dados (md5 antes/depois). Falha se velocidade abaixo do threshold ou hash diverge.</p>
+
+  <h4>Comandos</h4>
+  <pre>cd /data/data/&lt;package&gt;/files/memtest_work   # ou /data/local/tmp/memtest_work no ScriptOnly
+
+# Write
+T1=$(date +%s%3N)
+dd if=/dev/urandom of=testfile bs=4M count=128 conv=fsync
+T2=$(date +%s%3N)
+WRITE_MS=$((T2-T1))
+WRITE_MBPS=$(( 512 * 1000 / WRITE_MS ))
+
+md5sum testfile &gt; hash_before.txt
+
+sync
+echo 3 &gt; /proc/sys/vm/drop_caches            # PRECISA UID 0; se falhar, cosmetico
+
+# Read
+T3=$(date +%s%3N)
+dd if=testfile of=/dev/null bs=4M
+T4=$(date +%s%3N)
+READ_MS=$((T4-T3))
+READ_MBPS=$(( 512 * 1000 / READ_MS ))
+
+md5sum testfile &gt; hash_after.txt
+diff hash_before.txt hash_after.txt</pre>
+
+  <h4>Thresholds (do profile)</h4>
+  <ul>
+    <li><code>MIN_WRITE_MBPS</code> — depende da classe (eMMC 4.5/5.0/5.1, UFS 2.x/3.x).</li>
+    <li><code>MIN_READ_MBPS</code> — idem.</li>
+    <li><code>STORAGE_TEST_SIZE_MB</code> — default 512 MB. Reduzir em devices com pouco espaço livre.</li>
+  </ul>
+
+  <h4>Permissão</h4>
+  <table>
+    <thead><tr><th>Operação</th><th>Permissão</th></tr></thead>
+    <tbody>
+      <tr><td><code>dd if=/dev/urandom</code></td><td>world-readable</td></tr>
+      <tr><td>escrever em <code>filesDir</code> ou <code>/data/local/tmp</code></td><td>uid do APK ou shell</td></tr>
+      <tr><td><code>echo 3 &gt; /proc/sys/vm/drop_caches</code></td><td><strong>uid 0 obrigatório</strong>. Se falhar, é cosmético (read pode vir cacheado, mas teste continua).</td></tr>
+    </tbody>
+  </table>
+
+  <h4>Por que sem root o read pode vir &quot;rápido demais&quot;</h4>
+  <p>Sem <code>drop_caches</code>, o read pode vir do page cache em RAM em vez do storage. Mitigação: tamanho do teste &gt; cache disponível (512 MB &gt; cache em devices com 1–4 GB de RAM funciona na prática).</p>
+</div>
+
+<h2 id="test-ram-memtester">7. RAM test (memtester)</h2>
+<div class="test-card">
+  <p><span class="badge badge-apk">APK</span><span class="badge badge-script">ScriptOnly</span><span class="badge badge-norm">sem root</span><span class="badge badge-kernel">mlock unlimited crítico</span></p>
+  <p><strong>O que valida:</strong> o teste mais crítico — exercita células de RAM com 16 padrões diferentes. Detecta stuck-at, coupling faults, decoder faults, pattern-sensitive bugs.</p>
+
+  <h4>Binário</h4>
+  <p>Procura nos caminhos:</p>
+  <pre>/system/bin/memtester          # padrão se empacotado via AOSP
+/system/xbin/memtester
+/vendor/bin/memtester
+/data/local/tmp/memtester      # ScriptOnly empurra via adb push
+</pre>
+
+  <h4>Execução</h4>
+  <pre>memtester &lt;SIZE&gt;M &lt;LOOPS&gt;
+
+# Exemplo factory (quick):
+# SIZE = min(50% MemAvailable, QUICK_MEMTEST_MAX_MB)
+# LOOPS = 1
+# TIMEOUT = 600s</pre>
+
+  <h4>Padrões executados (16 por loop)</h4>
+  <p>Stuck Address, Random Value, Compare XOR/SUB/MUL/DIV/OR/AND, Sequential Increment, Solid Bits, Block Sequential, Checkerboard, Bit Spread, Bit Flip, Walking Ones, Walking Zeroes.</p>
+
+  <h4>Por que <code>mlock</code> é crítico</h4>
+  <div class="callout fail">
+    <strong>RLIMIT_MEMLOCK baixo = fake-fast PASS</strong>
+    <p>O memtester chama <code>mlock()</code> pra travar a memória alocada e impedir swap/paging. Se o limite for baixo (típico de <code>untrusted_app</code>: ~8 MB), o memtester reduz o teste pra esse valor e termina em segundos com PASS — mas testou só 8 MB.</p>
+    <p>Por isso o APK precisa rodar como <code>platform_app</code> (priv-app + platform key), que tem <code>RLIMIT_MEMLOCK=unlimited</code>.</p>
+  </div>
+
+  <h4>Cobertura</h4>
+  <ul>
+    <li><strong>Quick (factory line)</strong>: ~50% do <code>MemAvailable</code>, 1 loop, ~3 min. Pega ~75% dos defeitos comuns.</li>
+    <li><strong>Deep (bancada/RMA)</strong>: ~70% do <code>MemAvailable</code>, 2–3 loops, ~30 min. Cobertura maior.</li>
+  </ul>
+
+  <h4>Por que nunca 100%</h4>
+  <p>Não dá pra testar a RAM que o próprio Android está usando (kernel, zygote, system_server). Em 1 GB de RAM, ~520 MB ficam ocupados pelo sistema, restando ~340 MB testáveis sem OOM. Pra 100% precisa teste offline (memtest86+ no bootloader).</p>
+</div>
+
+<h2 id="test-dmesg">8. Kernel log analysis (dmesg)</h2>
+<div class="test-card">
+  <p><span class="badge badge-apk">APK</span><span class="badge badge-script">ScriptOnly</span><span class="badge badge-norm">sem root preferível</span></p>
+  <p><strong>O que valida:</strong> busca padrões de erro de hardware no kernel log. Pega panics, ECC errors, I/O errors, uncorrectable bits, bad blocks — sinais de RAM/storage defeituoso vistos pelo kernel.</p>
+
+  <h4>Comando</h4>
+  <pre>dmesg &gt; dmesg.txt 2&gt;/dev/null
+
+grep -iE "I/O error|ufs error|mmc error|memory corruption|hardware error|ecc error|bad block|uncorrectable|panic" dmesg.txt</pre>
+
+  <h4>Permissão</h4>
+  <table>
+    <thead><tr><th>Android version</th><th>Restrição</th></tr></thead>
+    <tbody>
+      <tr><td>até Android 9</td><td><code>dmesg</code> acessível pra shell</td></tr>
+      <tr><td>Android 10+</td><td><code>dmesg_restrict</code> pode estar habilitado — só root lê. Em SELinux Permissive, retorna o conteúdo mas <code>shell</code>/<code>system</code> precisa de capability</td></tr>
+    </tbody>
+  </table>
+  <p>Se <code>dmesg.txt</code> vier vazio, o script reporta <em>"dmesg: não disponível"</em> mas não falha o teste — análise é cosmética.</p>
+</div>
+
+<hr>
+
+<h2 id="deep-overview">Deep RAM Diagnostic — visão</h2>
+<p>O <strong>deep</strong> é um script separado (<code>ram_diagnostic_deep_verbose_root_exec.sh</code>) focado exclusivamente em RAM. Não toca em storage, não roda dd test, não verifica health. Existe pra <strong>aprofundar a investigação</strong> em devices que passaram pelo factory test e ainda parecem suspeitos, ou pra homologação de lote.</p>
+
+<div class="callout">
+  <strong>Quando rodar Deep</strong>
+  <ul style="margin: 6px 0;">
+    <li>Device veio com queixa de "trava sozinho", "reinicia", "tela vira preta" → roda Deep RAM.</li>
+    <li>Validação de homologação de novo lote de chips → Deep RAM por amostragem.</li>
+    <li>Confirmação de defeito antes de abrir RMA com fornecedor.</li>
+  </ul>
+</div>
+
+<h3>Estrutura do Deep (6 seções no log)</h3>
+<table>
+<thead><tr><th>Seção</th><th>O que faz</th><th>Igual ao factory?</th></tr></thead>
+<tbody>
+<tr><td>[1] Device identification</td><td>getprop reduzido (serial, model, android, hardware, board, build, debuggable)</td><td>Sim, mas menos campos</td></tr>
+<tr><td>[2] RAM info</td><td>/proc/meminfo expandido + LPDDR type + <strong>dump completo</strong></td><td>Não — mais detalhado</td></tr>
+<tr><td>[3] Locate memtester</td><td>busca binário nos paths conhecidos</td><td>Sim</td></tr>
+<tr><td>[4] Deep RAM memtester</td><td>memtester pesado com progresso periódico</td><td>Não — config maior</td></tr>
+<tr><td>[5] Kernel log analysis</td><td>dmesg com patterns focados em RAM</td><td>Não — patterns diferentes</td></tr>
+<tr><td>[6] RESULTADO FINAL</td><td>resumo + <code>ram_deep_result.txt</code></td><td>Sim, mas só RAM</td></tr>
+</tbody>
+</table>
+
+<h2 id="deep-ram-info">Deep — RAM info expandida</h2>
+<div class="test-card">
+  <p><span class="badge badge-apk">APK</span><span class="badge badge-script">ScriptOnly</span><span class="badge badge-norm">sem root</span></p>
+  <p><strong>O que valida:</strong> snapshot completo do estado de memória. Inclui swap (quase sempre 0 em Android, mas registra), buffers e cache pra correlacionar com uso real.</p>
+
+  <h4>Campos lidos</h4>
+  <pre>grep MemTotal     /proc/meminfo    # KB total
+grep MemAvailable /proc/meminfo    # KB disponível pra alocar
+grep MemFree      /proc/meminfo    # KB livre (sem buffers/cache)
+grep '^Buffers:'  /proc/meminfo    # KB em buffers de I/O
+grep '^Cached:'   /proc/meminfo    # KB em page cache
+grep SwapTotal    /proc/meminfo    # KB swap total (geralmente 0)
+grep SwapFree     /proc/meminfo    # KB swap livre</pre>
+
+  <h4>Dump completo</h4>
+  <p>Além dos campos acima, o script faz <code>cat /proc/meminfo</code> inteiro e anexa no log — útil pra correlacionar Slab, KernelStack, PageTables, etc, depois do teste.</p>
+
+  <h4>Permissão</h4>
+  <p>Nenhuma. <code>/proc/meminfo</code> é world-readable. Funciona em qualquer UID.</p>
+</div>
+
+<h2 id="deep-memtester">Deep — Memtester profundo</h2>
+<div class="test-card">
+  <p><span class="badge badge-apk">APK</span><span class="badge badge-script">ScriptOnly</span><span class="badge badge-root">root preferível</span><span class="badge badge-kernel">mlock unlimited crítico</span></p>
+  <p><strong>O que valida:</strong> mesmo memtester do factory, mas com configuração muito mais agressiva. <strong>Não é stress paralelo</strong> — é o memtester clássico (16 padrões) rodando mais vezes em mais memória.</p>
+
+  <h4>Defaults do deep</h4>
+  <table>
+    <thead><tr><th>Variável</th><th>Factory (quick)</th><th>Deep</th></tr></thead>
+    <tbody>
+      <tr><td><code>MEMTEST_PERCENT</code></td><td>40–50%</td><td><strong>60%</strong></td></tr>
+      <tr><td><code>MEMTEST_MAX_MB</code></td><td>512</td><td><strong>2048</strong></td></tr>
+      <tr><td><code>MEMTEST_LOOPS</code></td><td>1</td><td><strong>3</strong></td></tr>
+      <tr><td><code>MEMTEST_TIMEOUT_S</code></td><td>600 (10 min)</td><td><strong>3600 (1 h)</strong></td></tr>
+      <tr><td><code>MIN_MEMTEST_MB</code></td><td>128</td><td>128</td></tr>
+    </tbody>
+  </table>
+
+  <h4>Execução com progresso periódico</h4>
+  <pre>sync
+echo 3 &gt; /proc/sys/vm/drop_caches      # se root, limpa caches antes
+memtester &lt;SIZE&gt;M &lt;LOOPS&gt; &gt; ram_deep_memtester.log 2&gt;&amp;1 &amp;
+
+# Polling: a cada 15s reporta tempo decorrido
+# A cada 60s faz tail das últimas 30 linhas pro log principal
+# Se passar do timeout: kill normal → 2s → kill -9 → marca FAIL</pre>
+
+  <h4>Critério de FAIL</h4>
+  <ul>
+    <li>Exit code do memtester ≠ 0</li>
+    <li>Linha contendo <code>FAILURE</code> no output do memtester</li>
+    <li>Timeout (1h por default) — encerra com SIGKILL e marca FAIL</li>
+  </ul>
+
+  <h4>Por que mais loops</h4>
+  <p>Cada loop dos 16 padrões testa as MESMAS células alocadas. Defeitos intermitentes (timing, retenção, térmicos) podem só aparecer na 2ª ou 3ª passagem, quando o chip já está aquecido. <strong>1 loop pega ~75% dos defeitos; 3 loops pega ~90%</strong>.</p>
+</div>
+
+<h2 id="deep-dmesg">Deep — dmesg patterns focados em RAM</h2>
+<div class="test-card">
+  <p><span class="badge badge-apk">APK</span><span class="badge badge-script">ScriptOnly</span><span class="badge badge-root">root preferível</span></p>
+  <p><strong>O que valida:</strong> mesma análise dmesg do factory, mas com <strong>regex diferente</strong> — foca em eventos relacionados a RAM em vez de storage.</p>
+
+  <h4>Patterns do deep</h4>
+  <pre>grep -iE "memory corruption|hardware error|ecc error|uncorrectable|panic|oom|out of memory|page allocation failure|bad page|kernel BUG"</pre>
+
+  <h4>vs Factory</h4>
+  <pre>grep -iE "I/O error|ufs error|mmc error|memory corruption|hardware error|ecc error|bad block|uncorrectable|panic"</pre>
+
+  <h4>O que cada termo significa</h4>
+  <table>
+    <thead><tr><th>Pattern</th><th>Indica</th></tr></thead>
+    <tbody>
+      <tr><td><code>memory corruption</code></td><td>RAM corrompendo dados</td></tr>
+      <tr><td><code>ecc error</code></td><td>Erro corrigido (se houver ECC) — sinal precoce</td></tr>
+      <tr><td><code>uncorrectable</code></td><td>Erro não corrigível — RAM ou eMMC degradado</td></tr>
+      <tr><td><code>oom</code> / <code>out of memory</code></td><td>OOM killer — pode ser falta de RAM ou leak (não defeito de hardware)</td></tr>
+      <tr><td><code>page allocation failure</code></td><td>Kernel não conseguiu alocar — pressão extrema ou fragmentação</td></tr>
+      <tr><td><code>bad page</code></td><td>Página com corruption detectada pelo kernel</td></tr>
+      <tr><td><code>kernel BUG</code></td><td>Assertion failure no kernel — frequentemente disparado por RAM ruim</td></tr>
+      <tr><td><code>panic</code></td><td>Kernel parou — pode ter raiz em RAM</td></tr>
+    </tbody>
+  </table>
+
+  <p>Se encontrar qualquer match, o teste vira FAIL e os matches vão pro log completo (até 20 linhas mostradas).</p>
+</div>
+
+<h2 id="deep-bootstrap">Deep — Root bootstrap agressivo</h2>
+<div class="test-card">
+  <p><strong>O que muda em relação ao factory:</strong> o deep tenta escalar pra root <strong>antes de qualquer coisa</strong>, porque precisa de <code>drop_caches</code> + dmesg + possivelmente acesso protegido. O factory virou best-effort (commit recente).</p>
+
+  <h4>Fluxo do bootstrap</h4>
+  <pre>CURRENT_UID=$(id -u)
+
+if [ "$CURRENT_UID" != "0" ]; then
+    if [ "$RAM_DEEP_ALREADY_TRIED_ROOT" = "1" ]; then
+        # 2ª tentativa falhou → loga ERRO e segue sem root
+    else
+        export RAM_DEEP_ALREADY_TRIED_ROOT=1
+        if command -v su; then
+            exec su 0 sh "$0" "$@"     # reexec como root
+        fi
+    fi
+fi</pre>
+
+  <h4>Por que difere do factory</h4>
+  <table>
+    <thead><tr><th>Aspecto</th><th>Factory</th><th>Deep</th></tr></thead>
+    <tbody>
+      <tr><td>Sem <code>su</code> no PATH</td><td>continua sem root (warning)</td><td>continua sem root + ERROR no log</td></tr>
+      <tr><td>Workdir de log</td><td><code>memtest_work/</code></td><td>cria <code>memtest_work/</code> e escreve <code>ram_deep_root_bootstrap.log</code> antes do log principal</td></tr>
+      <tr><td>Re-exec</td><td>via <code>exec su 0 sh "$0"</code></td><td>idem</td></tr>
+      <tr><td>Variável de guarda</td><td><code>ROOT_REEXEC_DONE</code></td><td><code>RAM_DEEP_ALREADY_TRIED_ROOT</code></td></tr>
+    </tbody>
+  </table>
+
+  <h4>Implicação prática</h4>
+  <p>Pra rodar o deep com cobertura máxima:</p>
+  <ol>
+    <li>Build userdebug (que tem <code>su</code> em <code>/system/xbin/su</code>) — <strong>OU</strong></li>
+    <li>SELinux Permissive + APK como platform_app (pra ter as capabilities necessárias mesmo sem uid 0)</li>
+  </ol>
+  <p>Em build user puro, o deep continua rodando mas algumas coisas falham silenciosamente (drop_caches, dmesg parcial).</p>
+</div>
+
+<h3>Output estruturado do Deep (<code>ram_deep_result.txt</code>)</h3>
+<pre>RESULT=PASS
+SERIAL=P10B2221010000038
+MODEL=L400
+TIMESTAMP=20260513_120000
+DURATION_S=620
+LOGFILE=/data/.../ram_deep_20260513_120000.log
+RAM_MB=860
+RAM_AVAILABLE_MB=337
+RAM_TESTED_MB=202
+MEMTEST_PERCENT=60
+MEMTEST_MAX_MB=2048
+MEMTEST_LOOPS=3
+MEMTEST_TIMEOUT_S=3600
+MEMTESTER_BIN=/system/bin/memtester
+MEMTESTER_EXIT=0
+LPDDR_TYPE=N/A</pre>
+
+<hr>
+
+<h2 id="permissions">Matriz de permissões — resumo</h2>
+<table>
+<thead><tr><th>Teste</th><th>UID/contexto exigido</th><th>SELinux Permissive ajuda?</th><th>Root estritamente obrigatório?</th></tr></thead>
+<tbody>
+<tr><td>Device ID</td><td>qualquer</td><td>não precisa</td><td>não</td></tr>
+<tr><td>Storage ID (sysfs)</td><td>qualquer (0444)</td><td>sim (em Enforcing)</td><td>não</td></tr>
+<tr><td>Storage health</td><td>qualquer (0444)</td><td>sim (em Enforcing)</td><td>não (depende do driver expor)</td></tr>
+<tr><td>Storage capacidade</td><td>shell ou system</td><td>às vezes</td><td>não</td></tr>
+<tr><td>RAM info</td><td>qualquer</td><td>não precisa</td><td>não</td></tr>
+<tr><td>Storage I/O test</td><td>uid do APK ou shell</td><td>não precisa</td><td><strong>drop_caches sim</strong> (cosmético)</td></tr>
+<tr><td>RAM memtester</td><td>system ou root (mlock unlimited)</td><td>indireto (permite alocar grande)</td><td>não, mas precisa RLIMIT_MEMLOCK alto</td></tr>
+<tr><td>dmesg</td><td>shell/system; root garantido</td><td>sim em Android 10+</td><td>preferencial (não bloqueante)</td></tr>
+</tbody>
+</table>
+
+<h2 id="soc-vendor">Considerações por SoC vendor</h2>
+
+<h3>SPRD (Spreadtrum/Unisoc) — TL10, T2070D</h3>
+<ul>
+  <li>SELinux Permissive via <code>BOARD_KERNEL_CMDLINE += androidboot.selinux=permissive</code> funciona.</li>
+  <li>Sysfs eMMC expõe formato &quot;separado&quot; (<code>life_time_type_a/b</code>) ou <code>life_time_estimation_a/b</code>.</li>
+  <li>Sem <code>/proc/bootdevice/</code> tipicamente.</li>
+</ul>
+
+<h3>MediaTek MT6761 — L400</h3>
+<ul>
+  <li><strong>BOARD_KERNEL_CMDLINE é ignorado</strong> — cmdline é montada pelo LK (Little Kernel) em runtime. Pra Permissive: <code>PRJ_SELINUX_STATUS := 2</code> no project file do LK + rebuild/flash do <code>lk.img</code>.</li>
+  <li>Sysfs eMMC expõe formato &quot;único&quot;: <code>/sys/.../life_time</code> com &quot;A B&quot; separados por espaço (estilo Allwinner).</li>
+  <li>Alguns kernels MTK têm <code>/proc/bootdevice/life_time_est_typ_a/b</code> e <code>pre_eol_info</code> — fallback adicional implementado.</li>
+  <li><code>ro.soc.manufacturer</code> vazio.</li>
+  <li><code>ro.boot.ddr_type</code> e similares vazios — LPDDR type fica N/A.</li>
+  <li><code>adb root</code> em Windows quebra adb-server.</li>
+</ul>
+
+<h2 id="thresholds">Thresholds &amp; profiles</h2>
+<p>Cada SKU tem um <code>&lt;MODELO&gt;.conf</code> em <code>profiles/</code> com:</p>
+<pre>MIN_WRITE_MBPS              # mín. write storage
+MIN_READ_MBPS               # mín. read storage
+STORAGE_TEST_SIZE_MB        # tamanho do teste I/O
+EXPECTED_RAM_GB             # RAM esperada (gate de PASS)
+
+QUICK_MEMTEST_PERCENT       # % do MemAvailable pro teste quick
+QUICK_MEMTEST_MAX_MB        # teto
+QUICK_MEMTEST_MIN_MB        # piso
+QUICK_MEMTEST_LOOPS         # loops do memtester quick
+QUICK_MEMTEST_TIMEOUT_S     # timeout
+
+MEMTEST_PERCENT             # idem pra teste deep
+MEMTEST_MAX_MB
+MEMTEST_LOOPS
+MEMTEST_TIMEOUT_S</pre>
+
+<p>No APK, esses valores ficam num <code>DeviceProfile</code> no Room database, baixados do servidor local ou usando o perfil <em>Default(T2070D)</em> embarcado.</p>
+
+<h2 id="outputs">Outputs esperados</h2>
+
+<h3>Log textual (<code>memtest_full_&lt;ts&gt;.log</code>)</h3>
+<pre>=============================================
+  FACTORY MEMORY TEST - &lt;data&gt;
+=============================================
+
+[1] Device identification
+  Serial       : P10B...
+  Brand        : positivo
+  Model        : L400
+  ...
+
+[2] Storage info
+  Type        : MMC
+  Vendor      : 0x000015 (Samsung)
+  Model       : FN62BB
+  Capacity    : 4GB
+  LifeTimeA   : 0x01
+  LifeTimeB   : 0x01
+  Pre-EOL     : 0x01 (normal)
+
+[3] RAM info
+  Total RAM   : 860 MB (~1 GB)
+  Available   : 337 MB
+  LPDDR type  : N/A
+
+[4] Storage test (512MB)
+  Write speed : ~53 MB/s
+  Read speed  : ~234 MB/s
+  Integridade : OK (hash match)
+
+[5] RAM quick validation + memtester
+  Testando RAM: 168MB (50% da disponível)
+  memtester   : OK (exit 0, duração 161s)
+
+[6] Kernel log analysis
+  dmesg       : sem erros de hardware
+
+[7] RESULTADO FINAL
+  Status      : PASS
+</pre>
+
+<h3>Output estruturado (<code>result.txt</code>)</h3>
+<pre>RESULT=PASS
+SERIAL=P10B2221010000038
+MODEL=L400
+TIMESTAMP=20260513_111327
+DURATION_S=185
+STORAGE_TYPE=MMC
+STORAGE_VENDOR=0x000015
+STORAGE_MODEL=FN62BB
+STORAGE_GB=4
+LIFETIME_A=0x01
+LIFETIME_B=0x01
+LIFETIME_SOURCE=/sys/class/mmc_host/mmc0/mmc0:0001/life_time
+PRE_EOL=0x01
+RAM_MB=860
+RAM_AVAILABLE_MB=337
+RAM_TESTED_MB=168
+LPDDR_TYPE=N/A
+WRITE_MBPS=53
+READ_MBPS=234
+MEMTESTER_BIN=/system/bin/memtester
+MEMTESTER_EXIT=0</pre>
+
+<h2 id="replicar">Replicar em outro projeto</h2>
+
+<h3>Caminho minimalista (só os scripts)</h3>
+<ol>
+  <li>Copie <code>full_memtest.sh</code> e <code>ram_diagnostic_deep_verbose_root_exec.sh</code>.</li>
+  <li>Compile <code>memtester</code> pra ABI do device (arm32/arm64/x86) e empacote.</li>
+  <li>Crie um wrapper que faça <code>adb push</code> dos scripts + binário e rode via <code>adb shell</code>.</li>
+  <li>Crie profiles <code>.conf</code> com thresholds do SKU.</li>
+</ol>
+
+<h3>Caminho com APK (UI no device)</h3>
+<ol>
+  <li>Copie <code>ScriptRunner.kt</code> (extrai asset → <code>ProcessBuilder("/system/bin/sh", scriptFile)</code>).</li>
+  <li>Embarque os scripts em <code>assets/</code> do seu APK.</li>
+  <li>Compile o APK e empacote como prebuilt no AOSP do device:
+    <pre>// Android.bp
+android_app_import {
+    name: "MeuTeste",
+    apk: "MeuTeste.apk",
+    certificate: "platform",
+    privileged: true,
+}</pre>
+  </li>
+  <li>Adicione <code>PRODUCT_PACKAGES += MeuTeste memtester</code> e o flag de SELinux Permissive no <code>device.mk</code>/<code>BoardConfig.mk</code> (ou LK no MTK).</li>
+  <li>Rebuild + flash. O AOSP re-assina com a platform key automaticamente.</li>
+</ol>
+
+<h3>Validar a integração</h3>
+<p>Use o <code>pre_check.sh</code> do ScriptOnly como teste de capacidade — ele lista o que funciona e o que está bloqueado num device específico, sem alterar nada.</p>
+
+<div class="callout ok">
+  <strong>Princípio chave</strong>
+  <p>Toda a lógica de teste fica nos scripts shell. APK e AOSP existem só pra dar permissões + UI. Isso permite mesma cobertura em qualquer device que tenha SELinux Permissive + memtester instalado.</p>
+</div>
+
+<hr>
+<p class="footnote">Documento gerado a partir do código-fonte de <code>MemoryTest/app/src/main/assets/full_memtest.sh</code> e <code>MemoryTest_QA_ScriptOnly_v4/scripts/full_memtest.sh</code>.</p>
+
+</main>
+</div>
+</body>
+</html>

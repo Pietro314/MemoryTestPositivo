@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>MemoryTest — Guia explicativo (versão Jr)</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #6a6a6a;
+    --accent: #0066cc;
+    --accent-soft: #e6f0fa;
+    --warn: #b35900;
+    --warn-soft: #fff4e6;
+    --ok: #2d7a2d;
+    --ok-soft: #e8f5e8;
+    --fail: #b00020;
+    --fail-soft: #fce8e9;
+    --teach: #5a0fa0;
+    --teach-soft: #f3e8fa;
+    --border: #d0d0d0;
+    --code-bg: #f4f4f4;
+    --code-fg: #2d2d2d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.65;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: 100vh;
+  }
+  nav.toc {
+    background: #fff;
+    border-right: 1px solid var(--border);
+    padding: 24px 16px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    font-size: 13px;
+  }
+  nav.toc h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 14px 0 8px 4px;
+    letter-spacing: 0.5px;
+  }
+  nav.toc ul { list-style: none; padding: 0; margin: 0 0 12px; }
+  nav.toc li { margin: 1px 0; }
+  nav.toc a {
+    display: block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: var(--fg);
+    text-decoration: none;
+    font-size: 13px;
+  }
+  nav.toc a:hover { background: var(--accent-soft); color: var(--accent); }
+  main {
+    padding: 40px 56px;
+    max-width: 1000px;
+  }
+  h1 {
+    font-size: 30px;
+    margin: 0 0 8px;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 16px;
+    margin-bottom: 32px;
+  }
+  h2 {
+    font-size: 24px;
+    margin: 56px 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--accent);
+  }
+  h3 {
+    font-size: 19px;
+    margin: 32px 0 10px;
+    color: var(--accent);
+  }
+  h4 {
+    font-size: 14px;
+    margin: 18px 0 6px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  p, ul, ol { margin: 10px 0 14px; }
+  code {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: "JetBrains Mono", Consolas, monospace;
+    font-size: 0.9em;
+  }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 14px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 13px;
+    font-family: "JetBrains Mono", Consolas, monospace;
+    border: 1px solid #e0e0e0;
+    line-height: 1.5;
+  }
+  pre code { background: transparent; padding: 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    background: #fff;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    font-size: 14px;
+    vertical-align: top;
+  }
+  th { background: #f0f0f0; font-weight: 600; }
+  .test-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 18px 0;
+  }
+  .test-card h3 { margin-top: 0; }
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 14px 18px;
+    margin: 14px 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .callout.warn { border-color: var(--warn); background: var(--warn-soft); }
+  .callout.fail { border-color: var(--fail); background: var(--fail-soft); }
+  .callout.ok { border-color: var(--ok); background: var(--ok-soft); }
+  .callout.teach { border-color: var(--teach); background: var(--teach-soft); }
+  .callout strong { display: block; margin-bottom: 6px; }
+  .callout.teach::before {
+    content: "📘 Para entender melhor";
+    display: block;
+    font-weight: 700;
+    color: var(--teach);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .glossary {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 0;
+  }
+  .glossary dt {
+    font-weight: 700;
+    color: var(--accent);
+    font-family: "JetBrains Mono", Consolas, monospace;
+    padding: 14px 20px 4px;
+    font-size: 14px;
+  }
+  .glossary dd {
+    margin: 0;
+    padding: 0 20px 14px 40px;
+    color: var(--fg);
+    border-bottom: 1px dashed #ddd;
+    font-size: 14px;
+  }
+  .glossary dd:last-child { border-bottom: none; }
+  hr { border: 0; border-top: 1px solid var(--border); margin: 36px 0; }
+  .footnote { color: var(--muted); font-size: 13px; }
+  .step {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+    padding: 14px 18px;
+    margin: 14px 0;
+  }
+  .step h4 {
+    margin: 0 0 8px;
+    color: var(--accent);
+    font-size: 15px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc">
+
+<h2>Comece por aqui</h2>
+<ul>
+  <li><a href="#intro">Introdução</a></li>
+  <li><a href="#contexto">Contexto: o que é Android, AOSP, kernel</a></li>
+  <li><a href="#objetivo">O que esse projeto faz</a></li>
+  <li><a href="#caminhos">Os 2 caminhos: APK e ScriptOnly</a></li>
+</ul>
+
+<h2>Pré-requisitos</h2>
+<ul>
+  <li><a href="#aosp-mudancas">Mudanças no AOSP</a></li>
+  <li><a href="#selinux">SELinux: o portão</a></li>
+  <li><a href="#mlock">Por que precisa de mlock unlimited</a></li>
+</ul>
+
+<h2>Testes do Factory</h2>
+<ul>
+  <li><a href="#t-device">1. Identificação do device</a></li>
+  <li><a href="#t-stor-id">2. Identificação do storage</a></li>
+  <li><a href="#t-stor-health">3. Saúde do storage</a></li>
+  <li><a href="#t-stor-cap">4. Capacidade do storage</a></li>
+  <li><a href="#t-ram-info">5. Info de RAM</a></li>
+  <li><a href="#t-stor-io">6. I/O test do storage</a></li>
+  <li><a href="#t-memtester">7. Teste de RAM (memtester)</a></li>
+  <li><a href="#t-dmesg">8. Análise de dmesg</a></li>
+</ul>
+
+<h2>Teste Deep RAM</h2>
+<ul>
+  <li><a href="#deep">O que muda no Deep</a></li>
+</ul>
+
+<h2>Replicar</h2>
+<ul>
+  <li><a href="#replicar">Como replicar em outro projeto</a></li>
+</ul>
+
+<h2>Referência</h2>
+<ul>
+  <li><a href="#glossario">📖 Glossário completo</a></li>
+</ul>
+
+</nav>
+
+<main>
+
+<h1>MemoryTest — Guia explicativo</h1>
+<p class="subtitle">Versão didática para devs que estão chegando agora no projeto. Explica não só <em>o quê</em>, mas <em>por quê</em>. Glossário completo no fim.</p>
+
+<div class="callout teach">
+  <p>Esta página assume que você já programa, mas talvez não tenha experiência específica com Android <em>de fábrica</em>, AOSP, ou Linux a nível de kernel. Cada sigla aparece com explicação na primeira vez. Se esquecer o que algo significa depois, pula pro <a href="#glossario">glossário no fim</a>.</p>
+</div>
+
+<h2 id="intro">Introdução</h2>
+<p>O <strong>MemoryTest</strong> é um aplicativo Android + scripts que <strong>testam a memória RAM e o storage interno (chip de armazenamento)</strong> de tablets/celulares antes de eles saírem de fábrica pro cliente final.</p>
+<p>Por que isso existe? Chips de RAM e storage <strong>às vezes vêm com defeito de fábrica</strong>. Defeito pequeno passa despercebido no boot — o aparelho liga, conecta na rede, parece normal — mas depois de algumas horas/dias começa a travar, reiniciar sozinho, ou corromper arquivos. Pra cliente final, isso vira RMA (devolução), perda de reputação e custo.</p>
+<p>O projeto roda <strong>antes do device sair de fábrica</strong>, faz uma bateria de testes, e dá um veredicto <strong>PASS</strong> ou <strong>FAIL</strong>. Devices que falham voltam pra rework ou descarte.</p>
+
+<h2 id="contexto">Contexto: o que é Android, AOSP, kernel</h2>
+
+<div class="callout teach">
+  <p>Se você já mexe com Android nativo (apps em Kotlin/Java), pode pular essa seção. Mas se nunca olhou pra dentro do sistema, vale ler.</p>
+</div>
+
+<h3>Android é Linux com camadas em cima</h3>
+<p>O Android, por dentro, é um sistema operacional baseado no <strong>kernel Linux</strong> — o mesmo kernel que roda em servidores e Raspberry Pi. Em cima do kernel tem várias camadas (HAL, runtime ART, frameworks Java, apps), mas o coração é Linux.</p>
+
+<p>Isso é importante porque <strong>tudo que funciona em Linux funciona no Android</strong>: comandos shell (<code>ls</code>, <code>cat</code>, <code>grep</code>), arquivos especiais (<code>/proc</code>, <code>/sys</code>, <code>/dev</code>), permissões Unix (rwxr-xr-x), processos, sinais, etc.</p>
+
+<h3>AOSP é o código fonte do Android</h3>
+<p><strong>AOSP</strong> = <em>Android Open Source Project</em>. É o código-fonte completo do Android, mantido pelo Google. Fabricantes (Samsung, Xiaomi, Positivo, etc) <strong>baixam o AOSP, customizam pro hardware deles, compilam e flasham no device</strong>.</p>
+
+<p>O que a Positivo faz é exatamente isso: pega o AOSP, adiciona drivers do MediaTek (ou Spreadtrum), customiza, compila as imagens (<code>boot.img</code>, <code>system.img</code>, <code>vendor.img</code>, etc) e flasha nos tablets/celulares novos.</p>
+
+<p>Pro MemoryTest funcionar 100%, precisamos <strong>alterar o AOSP da Positivo</strong> em poucos pontos antes do build. Esses pontos estão documentados mais abaixo em <a href="#aosp-mudancas">"Mudanças no AOSP"</a>.</p>
+
+<h3>O kernel expõe o hardware via arquivos virtuais</h3>
+<p>O Linux tem uma filosofia: <strong>"tudo é arquivo"</strong>. Você não chama uma API pra perguntar "quanto de RAM tem?" — você lê o arquivo <code>/proc/meminfo</code>.</p>
+
+<pre># No PC ou no Android, isso funciona igual:
+cat /proc/meminfo
+
+# saída:
+# MemTotal:        881540 kB
+# MemAvailable:    345880 kB
+# ...</pre>
+
+<p>Esses arquivos não existem no disco — são gerados pelo kernel em tempo real quando alguém abre. Tem 2 sistemas de arquivos virtuais importantes pro nosso projeto:</p>
+
+<ul>
+  <li><strong><code>/proc</code></strong> — info de processos e sistema. Ex: <code>/proc/meminfo</code>, <code>/proc/cpuinfo</code>, <code>/proc/sys/vm/drop_caches</code>.</li>
+  <li><strong><code>/sys</code></strong> ("sysfs") — info de hardware e drivers. Ex: <code>/sys/class/mmc_host/mmc0/mmc0:0001/cid</code> (o identificador único do chip eMMC).</li>
+</ul>
+
+<div class="callout">
+  <strong>Por que isso importa pro nosso projeto</strong>
+  <p>Quase toda info que a gente precisa pro teste (RAM total, modelo do chip eMMC, saúde do chip, capacidade) vem de <strong>ler arquivos em <code>/sys</code> e <code>/proc</code></strong>. Não usamos APIs Java do Android — leitura direta. Por isso o teste é feito com <strong>shell scripts</strong> em vez de código Kotlin puro.</p>
+</div>
+
+<h2 id="objetivo">O que esse projeto faz, em detalhes</h2>
+<p>Resumindo, o projeto faz <strong>8 testes</strong> no aparelho:</p>
+<ol>
+  <li><strong>Identifica o device</strong> (modelo, fabricante, versão do Android, etc) — pra constar no relatório.</li>
+  <li><strong>Identifica o chip de storage</strong> (vendor, modelo, tipo eMMC ou UFS) — pra rastreabilidade.</li>
+  <li><strong>Lê a saúde do storage</strong> (quanto já foi "gasto" da vida útil) — pra rejeitar chips que vieram desgastados.</li>
+  <li><strong>Mede a capacidade do storage</strong> (4 GB? 8 GB? 64 GB?) — pra confirmar que tem o tamanho que devia.</li>
+  <li><strong>Lê info de RAM</strong> (total e disponível) — pra confirmar que tem a RAM esperada.</li>
+  <li><strong>Roda um teste de leitura/escrita</strong> no storage com 512 MB de dados aleatórios e confere se o que escreveu volta igual (hash MD5) — pega chips que corrompem dados.</li>
+  <li><strong>Roda o memtester na RAM</strong> com 16 padrões diferentes — pega chips de RAM com células defeituosas.</li>
+  <li><strong>Lê o log do kernel (dmesg)</strong> procurando mensagens de erro de hardware — pega problemas que o kernel já detectou.</li>
+</ol>
+
+<p>Cada teste produz um veredicto. Se algum falha, o teste geral vira <strong>FAIL</strong> com a razão listada.</p>
+
+<h2 id="caminhos">Os 2 caminhos para rodar o teste</h2>
+
+<p>O mesmo conjunto de testes pode ser executado de duas formas diferentes. A diferença é quem <strong>chama</strong> os scripts.</p>
+
+<div class="step">
+  <h4>Caminho A — APK platform-signed (a "solução de produção")</h4>
+  <p>Tem um aplicativo Android (APK) que vem <strong>pré-instalado no firmware</strong> do device. Ele tem uma tela bonita pro operador da fábrica, lista de testes disponíveis, histórico no banco de dados, etc.</p>
+  <p>Quando o operador clica em "Rodar teste", o APK extrai o script shell que vem dentro dele (em <code>assets/</code>) e roda esse script via <strong>ProcessBuilder</strong> (uma API Java pra spawn de processo).</p>
+  <p><strong>Vantagens:</strong> UI no próprio device, integra com banco de perfis, fluxo profissional.</p>
+  <p><strong>Requisito:</strong> precisa de mudanças no AOSP da fábrica (descritas abaixo).</p>
+</div>
+
+<div class="step">
+  <h4>Caminho B — ScriptOnly via ADB (a "solução de bancada")</h4>
+  <p>Não tem APK. O QA conecta o device no PC via USB e roda os scripts <strong>direto do PC</strong> via <code>adb shell</code>. Os scripts são empurrados pro device, executam lá, geram um log, e o log é puxado de volta pro PC.</p>
+  <p><strong>Vantagens:</strong> não precisa modificar nada no AOSP. Funciona em qualquer device com USB debug ativo.</p>
+  <p><strong>Desvantagem:</strong> precisa cabo + PC. Não serve pra linha de produção em massa.</p>
+</div>
+
+<div class="callout teach">
+  <strong>O que é ADB</strong>
+  <p><strong>ADB</strong> = <em>Android Debug Bridge</em>. É uma ferramenta da Google que permite o PC mandar comandos pra um device Android via USB (ou WiFi). Comandos típicos: <code>adb install &lt;apk&gt;</code>, <code>adb shell ls /</code>, <code>adb push arquivo /sdcard/</code>. Vem com o Android SDK.</p>
+</div>
+
+<div class="callout">
+  <strong>Os scripts são os mesmos</strong>
+  <p>Tanto o caminho A quanto o B usam <strong>o mesmo arquivo</strong> <code>full_memtest.sh</code> — ele fica em dois lugares (dentro do APK e dentro do zip ScriptOnly), mas o conteúdo é idêntico. Toda a lógica de teste tá no shell script. APK e ADB são só formas diferentes de invocar ele.</p>
+</div>
+
+<div class="callout warn">
+  <strong>Mas os 2 caminhos NÃO são 100% equivalentes</strong>
+  <p>O script é igual, mas <strong>quem roda</strong> ele tem privilégios diferentes. Em resumo:</p>
+  <ul style="margin: 6px 0;">
+    <li><strong>APK platform_app</strong> roda como UID <code>system</code> (1000), num contexto privilegiado. Ganha <code>mlock unlimited</code> garantido (crítico pro memtester), tem acesso a vários grupos Unix (incluindo <code>disk</code>), pode mexer em <code>/data/system</code>, e mostra UI no device.</li>
+    <li><strong>ScriptOnly</strong> roda como UID <code>shell</code> (2000), via <code>adb</code>. <code>mlock</code> depende da config do device (pode ser baixo em build user), não tem grupo <code>disk</code>, e precisa de PC plugado. Em compensação, escala pra root facilmente com <code>adb root</code> em userdebug e não depende de modificações no AOSP.</li>
+  </ul>
+  <p>No nosso caso (L400/SPRD em userdebug com SELinux Permissive), os 2 caminhos conseguem fazer praticamente os mesmos testes porque os arquivos críticos (<code>/sys/class/mmc_host/...</code>, <code>/proc/meminfo</code>) são <strong>world-readable</strong> (modo <code>0444</code>) — qualquer UID lê. Mas em <strong>produção (build user + SELinux Enforcing)</strong>, o APK platform_app é mais robusto e cobre coisas que o ScriptOnly não cobriria.</p>
+  <p><strong>Regra prática:</strong> APK = caminho de produção. ScriptOnly = caminho de bancada/debug.</p>
+</div>
+
+<h2 id="aosp-mudancas">Mudanças no AOSP (pra caminho A funcionar)</h2>
+
+<p>Pra o APK MemoryTest funcionar com cobertura completa, a árvore AOSP da Positivo precisa ter <strong>4 mudanças</strong>:</p>
+
+<div class="step">
+  <h4>Mudança 1 — Empacotar o binário <code>memtester</code></h4>
+  <p>O memtester é uma ferramenta C open-source que testa RAM com 16 padrões. Ele não vem com o Android stock. Precisa ser compilado pra ABI do device (arm32, arm64, etc) e empacotado no firmware em <code>/system/bin/memtester</code>.</p>
+  <pre># No device.mk ou main.mk da árvore AOSP:
+PRODUCT_PACKAGES += memtester</pre>
+  <p>O source do memtester fica em <code>external/memtester/</code> com um <code>Android.bp</code> declarando como compilar.</p>
+</div>
+
+<div class="step">
+  <h4>Mudança 2 — Empacotar o APK MemoryTest como prebuilt</h4>
+  <p>O APK que a gente compila (com <code>./gradlew assembleRelease</code>) precisa ser <strong>incluído no firmware</strong> como um app pré-instalado privilegiado. Isso é feito declarando-o em <code>Android.bp</code> ou <code>Android.mk</code>:</p>
+  <pre>// packages/apps/MemoryTest/Android.bp
+android_app_import {
+    name: "MemoryTest",
+    apk: "MemoryTest.apk",
+    certificate: "platform",
+    privileged: true,
+}</pre>
+  <p>E adicionar no <code>device.mk</code>:</p>
+  <pre>PRODUCT_PACKAGES += MemoryTest</pre>
+  <p><strong>O ponto crucial</strong> é o <code>certificate: "platform"</code>. Quando você instala um APK normalmente (<code>adb install</code>), ele é assinado pelo seu certificado de desenvolvedor e roda como um app comum (UID alto, restrito). Mas quando o AOSP empacota com <code>certificate: "platform"</code>, ele <strong>re-assina o APK com a chave de plataforma</strong> do device. Isso transforma o app em <strong>platform_app</strong>, que tem permissões muito maiores.</p>
+</div>
+
+<div class="step">
+  <h4>Mudança 3 — Configurar SELinux como Permissive</h4>
+  <p>O SELinux é um sistema de segurança do Linux que bloqueia acessos mesmo quando as permissões Unix permitem. Ele tem 2 modos: <strong>Enforcing</strong> (bloqueia o que não está permitido) e <strong>Permissive</strong> (só loga, não bloqueia).</p>
+  <p>Em produção pra cliente final, Android sempre vem com SELinux Enforcing. Mas <strong>pra teste de fábrica, deixamos Permissive</strong> — assim o teste consegue ler todos os arquivos de <code>/sys</code> que precisa, sem ter que escrever policy customizada pra cada caso.</p>
+  <p>Como configurar depende do SoC:</p>
+  <ul>
+    <li><strong>SPRD (Spreadtrum/Unisoc)</strong> — adicionar no <code>BoardConfig.mk</code>:
+      <pre>BOARD_KERNEL_CMDLINE += androidboot.selinux=permissive</pre>
+    </li>
+    <li><strong>MediaTek MT6761 (e similares)</strong> — o <code>BOARD_KERNEL_CMDLINE</code> é <strong>ignorado</strong> nesses SoC (a cmdline real é montada pelo bootloader LK em runtime). Precisa editar o project file do LK:
+      <pre># vendor/mediatek/proprietary/bootable/bootloader/lk/project/k61v1_32_bsp_1g.mk
+PRJ_SELINUX_STATUS := 2     # 2 = Permissive</pre>
+      E rebuildar/flashar o <code>lk.img</code>.
+    </li>
+  </ul>
+</div>
+
+<div class="step">
+  <h4>Mudança 4 — Build incremental e flash</h4>
+  <p>Depois das 3 mudanças acima:</p>
+  <pre>cd &lt;AOSP_ROOT&gt;
+source build/envsetup.sh
+lunch &lt;produto&gt;
+m productimage     # ou systemimage, conforme onde está o APK
+# Flash:
+fastboot flash product out/target/product/&lt;device&gt;/product.img</pre>
+  <p>Build incremental (depois que <code>out/</code> está populado) é rápido: 1-3 min só pra re-empacotar.</p>
+</div>
+
+<h2 id="selinux">SELinux: o "portão" que controla acesso a tudo</h2>
+
+<div class="callout teach">
+  <p>Essa parte é importante porque <strong>quase todo problema "estranho" no projeto envolve SELinux</strong>. Vale entender.</p>
+</div>
+
+<p>Imagine que cada arquivo do sistema tem 2 portões pra atravessar:</p>
+
+<ol>
+  <li><strong>DAC</strong> (<em>Discretionary Access Control</em>) — o sistema Unix tradicional. É aquele <code>-rw-r--r--</code> que você vê com <code>ls -l</code>. Permite/nega baseado em <strong>quem é o dono</strong> (usuário e grupo) do arquivo e do processo.</li>
+  <li><strong>SELinux MAC</strong> (<em>Mandatory Access Control</em>) — uma camada extra de segurança. Permite/nega baseado em <strong>contextos de segurança</strong>. Cada processo tem um contexto (ex: <code>u:r:platform_app:s0</code>) e cada arquivo também (ex: <code>u:object_r:sysfs:s0</code>). Há regras explícitas dizendo "<em>processo do tipo X pode ler arquivo do tipo Y</em>".</li>
+</ol>
+
+<p>Os 2 portões precisam ser passados. Se o DAC nega, SELinux nem é consultado. Se o DAC permite mas SELinux nega (em modo Enforcing), o acesso falha.</p>
+
+<p>Quando colocamos <strong>SELinux Permissive</strong>, o segundo portão fica sempre aberto — só DAC vale. Como a maioria dos arquivos de <code>/sys</code> que nos interessam tem DAC <code>0444</code> (todo mundo lê), conseguimos ler quase tudo sem precisar escrever policies customizadas.</p>
+
+<div class="callout warn">
+  <strong>Por que não rodamos Enforcing</strong>
+  <p>Em teoria, dava pra escrever uma policy SELinux customizada (arquivos <code>.te</code>) liberando exatamente os acessos que precisamos, e manter Enforcing. O problema é: cada device tem driver diferente, cada driver expõe sysfs em path diferente, e cada policy custa horas/dias pra escrever e testar. Pra contexto de fábrica, Permissive é prático e seguro o suficiente — o aparelho não tá conectado à internet rodando apps maliciosos.</p>
+</div>
+
+<h2 id="mlock">Por que precisa de "mlock unlimited"</h2>
+
+<p>Esse é o ponto mais sutil do projeto. Quando o memtester aloca, digamos, 200 MB de RAM pra testar, ele precisa garantir que o kernel <strong>não vai mover essa memória pra swap</strong> nem reciclar as páginas. Se o kernel realocar enquanto o teste rola, o teste é inválido — você não tá testando a mesma RAM o tempo todo.</p>
+
+<p>Pra evitar isso, o memtester chama <code>mlock()</code> — uma syscall do Linux que diz "<em>essa região de RAM é minha, não mexe</em>". Mas <code>mlock</code> tem um limite por processo, chamado <strong>RLIMIT_MEMLOCK</strong>. Esse limite é definido pelo sistema baseado em <strong>quem é o processo</strong>:</p>
+
+<table>
+<thead><tr><th>Contexto do processo</th><th>RLIMIT_MEMLOCK típico</th></tr></thead>
+<tbody>
+<tr><td><code>untrusted_app</code> (app comum do Play Store)</td><td>~8 MB</td></tr>
+<tr><td><code>shell</code> (UID 2000, usado pelo adb)</td><td>~64 MB</td></tr>
+<tr><td><code>platform_app</code> (priv-app assinado com platform key)</td><td><strong>unlimited</strong></td></tr>
+<tr><td><code>root</code> (UID 0)</td><td>unlimited</td></tr>
+</tbody>
+</table>
+
+<div class="callout fail">
+  <strong>O perigo do "fake-fast PASS"</strong>
+  <p>Se o memtester roda como <code>untrusted_app</code>, ele tenta alocar 200 MB e travar com mlock. O mlock falha (limite ~8 MB). O memtester então <strong>reduz automaticamente o tamanho do teste pra ~8 MB</strong>, roda os 16 padrões em 8 MB (rapidíssimo, ~5 segundos), e retorna PASS — mas testou só 4% da RAM. O operador vê PASS e libera o aparelho com RAM defeituosa pra cliente.</p>
+  <p>Por isso o APK <strong>obrigatoriamente</strong> precisa ser <code>platform_app</code>. Sem isso, o teste é cosmético.</p>
+</div>
+
+<hr>
+
+<h2 id="t-device">Teste 1 — Identificação do device</h2>
+
+<div class="test-card">
+  <p><strong>O que faz:</strong> coleta info do device pra constar no relatório. Não tem PASS/FAIL — é só meta-info.</p>
+
+  <h4>Como funciona</h4>
+  <p>Usa o comando <code>getprop</code>, que lê <strong>system properties</strong> do Android. Essas properties são pares chave=valor preenchidos pelo bootloader/init/build system. Ex: <code>ro.product.model</code> contém o nome do modelo (ex: "L400").</p>
+
+  <h4>Comandos lidos</h4>
+  <pre>getprop ro.serialno              # número de série único
+getprop ro.product.model         # modelo (L400, T2070D, TL10)
+getprop ro.product.brand         # marca (positivo)
+getprop ro.product.device        # codinome interno do device
+getprop ro.product.board         # codinome do board (k61v1_32_bsp_1g)
+getprop ro.product.cpu.abi       # ABI (armeabi-v7a, arm64-v8a)
+getprop ro.hardware              # SoC (mt6761, sp9863a)
+getprop ro.soc.manufacturer      # fabricante do SoC (MediaTek, Spreadtrum)
+getprop ro.build.version.release # versão do Android (11, 12)
+getprop ro.build.fingerprint     # string única do build
+getprop ro.build.type            # user, userdebug, eng
+getprop ro.debuggable            # 0 ou 1</pre>
+
+  <h4>Permissões</h4>
+  <p>Nenhuma especial. <code>getprop</code> é acessível por qualquer UID, qualquer contexto SELinux. Mesmo um app <code>untrusted_app</code> consegue.</p>
+
+  <div class="callout teach">
+    <strong>O que é "ABI"</strong>
+    <p><strong>ABI</strong> = <em>Application Binary Interface</em>. É o "formato binário" da arquitetura do processador. Códigos compilados pra <code>armeabi-v7a</code> (ARM 32-bit) <strong>não rodam</strong> em devices <code>arm64-v8a</code> (ARM 64-bit), e vice-versa. Por isso temos 2 versões do memtester: <code>memtester-arm32</code> e <code>memtester-arm64</code>.</p>
+  </div>
+
+  <div class="callout teach">
+    <strong>O que são "user, userdebug, eng"</strong>
+    <p>São <strong>tipos de build</strong> do AOSP:</p>
+    <ul style="margin: 4px 0;">
+      <li><strong>user</strong> — build de produção. Sem root, sem <code>su</code>, sem ferramentas de debug. É o que vai pro cliente final.</li>
+      <li><strong>userdebug</strong> — igual ao user mas com <code>su</code> disponível, root habilitado em <code>adb root</code>, mais logs. É o que QA usa pra testar.</li>
+      <li><strong>eng</strong> — engineering. Tudo aberto, máximo de logs, ferramentas extras. Usado por engenheiros AOSP.</li>
+    </ul>
+    <p>Pra fábrica usamos <strong>userdebug</strong> nos protótipos e mudamos pra <strong>user</strong> antes de mass production.</p>
+  </div>
+</div>
+
+<h2 id="t-stor-id">Teste 2 — Identificação do storage (vendor/modelo)</h2>
+
+<div class="test-card">
+  <p><strong>O que faz:</strong> descobre o fabricante e modelo do chip de armazenamento (eMMC ou UFS). Importante pra rastrear lotes — se vários devices falharem com o mesmo modelo de chip, é problema do fornecedor.</p>
+
+  <div class="callout teach">
+    <strong>O que é eMMC e UFS</strong>
+    <p>São dois <strong>padrões de chips de armazenamento flash</strong> usados em celulares.</p>
+    <ul style="margin: 4px 0;">
+      <li><strong>eMMC</strong> (<em>embedded MultiMediaCard</em>) — padrão mais antigo, usado em devices entry-level. Mais lento (~50-100 MB/s write). Comum em tablets baratos como L400.</li>
+      <li><strong>UFS</strong> (<em>Universal Flash Storage</em>) — padrão mais novo, usado em celulares high-end. Muito mais rápido (~500-1000 MB/s). Usa interface serial (SCSI).</li>
+    </ul>
+    <p>Os dois guardam dados de forma persistente, mas a forma de conversar com eles é diferente — por isso o código precisa tratar os dois casos.</p>
+  </div>
+
+  <h4>Como descobre — UFS primeiro</h4>
+  <pre># Procura o "health descriptor" — diretório especial que o driver UFS cria
+/sys/devices/platform/soc/*ufs*/health_descriptor
+/sys/bus/platform/devices/*ufs*/health_descriptor
+
+# Se achar, dentro dele tem o nome do vendor e produto:
+&lt;dir&gt;/string_descriptors/manufacturer_name    # ex: "SAMSUNG"
+&lt;dir&gt;/string_descriptors/product_name         # ex: "KLM8G1GETF-B041"</pre>
+
+  <h4>Como descobre — eMMC (se UFS não existir)</h4>
+  <pre># Procura o "CID" — Card IDentification, 16 bytes únicos do chip
+/sys/class/mmc_host/mmc*/mmc*:*/cid
+
+# Junto tem o vendor e modelo legíveis:
+/sys/class/mmc_host/mmc*/mmc*:*/name      # PNM em ASCII (ex: "FN62BB")
+/sys/class/mmc_host/mmc*/mmc*:*/manfid    # MID (ex: 0x000015 = Samsung)</pre>
+
+  <div class="callout teach">
+    <strong>Como decodificar o CID manualmente</strong>
+    <p>O CID é uma string hexadecimal de 32 caracteres (16 bytes). Os bytes têm significados específicos:</p>
+    <ul style="margin: 4px 0;">
+      <li>Byte 1-2 → <strong>MID</strong> (Manufacturer ID)</li>
+      <li>Byte 5-14 → <strong>PNM</strong> (Product Name) em hex — decode pra ASCII pra obter o nome</li>
+    </ul>
+    <p>Ex: CID <code>150100464e3632424209f6450647b9bf</code></p>
+    <ul style="margin: 4px 0;">
+      <li>MID = <code>15</code> → Samsung</li>
+      <li>PNM hex = <code>00464e3632</code> → decode = <code>"FN62"</code> (modelo Samsung KLMxFN62 family)</li>
+    </ul>
+  </div>
+
+  <h4>Vendors comuns de eMMC</h4>
+  <table>
+    <thead><tr><th>MID</th><th>Vendor</th></tr></thead>
+    <tbody>
+      <tr><td><code>0x15</code></td><td>Samsung</td></tr>
+      <tr><td><code>0x90</code></td><td>SK Hynix</td></tr>
+      <tr><td><code>0x70</code></td><td>Kingston</td></tr>
+      <tr><td><code>0x11</code></td><td>Toshiba/Kioxia</td></tr>
+      <tr><td><code>0x13</code></td><td>Micron</td></tr>
+    </tbody>
+  </table>
+
+  <h4>Permissões</h4>
+  <p>Os arquivos em <code>/sys/class/mmc_host/...</code> são tipicamente <code>0444</code> (world-readable). Qualquer UID lê, em qualquer contexto SELinux Permissive.</p>
+</div>
+
+<h2 id="t-stor-health">Teste 3 — Saúde do storage (LifeTime + Pre-EOL)</h2>
+
+<div class="test-card">
+  <p><strong>O que faz:</strong> lê 2 valores que o próprio chip eMMC/UFS calcula internamente sobre quanto da vida útil já foi usada. Importante porque um chip muito desgastado já vai sair com pouco tempo de vida — não vale entregar pra cliente.</p>
+
+  <div class="callout teach">
+    <strong>O que é LifeTime e Pre-EOL</strong>
+    <p>Chips eMMC/UFS são feitos de células de memória flash. Cada célula aguenta um número limitado de escritas (~10.000 a 100.000) antes de "queimar". O controlador do chip <strong>conta as escritas</strong> e mantém 2 estimativas internas:</p>
+    <ul style="margin: 4px 0;">
+      <li><strong>LifeTime A</strong> — desgaste das células do tipo A (geralmente SLC, mais resistente — usado pra metadados).</li>
+      <li><strong>LifeTime B</strong> — desgaste das células do tipo B (geralmente MLC/TLC, menos resistente — usado pra dados).</li>
+      <li><strong>Pre-EOL</strong> (<em>Pre End-of-Life</em>) — sinal binário de "tá perto do fim?". Vai de Normal → Warning → Critical conforme o controlador esgota os "spare blocks" (blocos de reserva pra reposição).</li>
+    </ul>
+  </div>
+
+  <h4>Interpretação dos valores</h4>
+  <table>
+    <thead><tr><th>Valor (hex)</th><th>LifeTime A/B (% usado)</th><th>Pre-EOL</th></tr></thead>
+    <tbody>
+      <tr><td><code>0x00</code></td><td>não definido (chip antigo)</td><td>—</td></tr>
+      <tr><td><code>0x01</code></td><td>0–10% usado (basicamente novo)</td><td>Normal</td></tr>
+      <tr><td><code>0x02</code></td><td>10–20% usado</td><td>Warning (~80% spare consumidos)</td></tr>
+      <tr><td><code>0x03</code></td><td>20–30% usado</td><td>Crítico (spare esgotado — FAIL)</td></tr>
+      <tr><td>...</td><td>(+10% por nível)</td><td>—</td></tr>
+      <tr><td><code>0x0A</code></td><td>90–100% usado</td><td>—</td></tr>
+      <tr><td><code>0x0B</code></td><td>passou de 100% (vida excedida)</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <h4>Onde está o valor</h4>
+  <p>Existem 3 formatos diferentes que vendors usam pra expor isso. O script tenta na ordem:</p>
+
+  <ol>
+    <li><strong>Arquivos separados</strong> (Samsung, Qualcomm, etc):
+      <pre>/sys/class/mmc_host/mmc0/mmc0:0001/life_time_type_a
+/sys/class/mmc_host/mmc0/mmc0:0001/life_time_type_b
+/sys/class/mmc_host/mmc0/mmc0:0001/pre_eol_info</pre>
+    </li>
+    <li><strong>Arquivo único</strong> (Allwinner, MediaTek MT6761):
+      <pre>/sys/class/mmc_host/mmc0/mmc0:0001/life_time
+# conteúdo: "0x01 0x01"  (A e B separados por espaço)</pre>
+    </li>
+    <li><strong>Caminho MTK alternativo</strong> (alguns kernels MediaTek antigos):
+      <pre>/proc/bootdevice/life_time_est_typ_a
+/proc/bootdevice/life_time_est_typ_b
+/proc/bootdevice/pre_eol_info</pre>
+    </li>
+  </ol>
+
+  <h4>Limitação importante</h4>
+  <div class="callout warn">
+    <strong>O kernel pode não expor</strong>
+    <p>Os valores SEMPRE existem no chip (bytes 267-269 do EXT_CSD da especificação JEDEC eMMC). Mas o <strong>driver MMC do kernel</strong> é quem escolhe criar os arquivos em <code>/sys</code>. Alguns kernels (especialmente MTK stock antigos) <strong>não criam</strong> — aí ficamos sem essa info.</p>
+    <p>Alternativas, todas pesadas:</p>
+    <ul style="margin: 4px 0;">
+      <li>Empacotar a ferramenta <code>mmc-utils</code> e rodar <code>mmc extcsd read /dev/block/mmcblk0</code> — precisa root real (CAP_SYS_RAWIO) por causa de um ioctl protegido.</li>
+      <li>Patchar o driver MMC do kernel pra criar os arquivos — trabalho de BSP, semanas.</li>
+      <li>Aceitar "N/A" no relatório e usar só Pre-EOL como termômetro.</li>
+    </ul>
+  </div>
+</div>
+
+<h2 id="t-stor-cap">Teste 4 — Capacidade do storage</h2>
+
+<div class="test-card">
+  <p><strong>O que faz:</strong> mede o tamanho real do chip de storage e compara com o tamanho esperado do profile. Se um device é especificado pra ter 64 GB e a gente medir 32 GB, alguém errou no almoxarifado.</p>
+
+  <h4>Método primário</h4>
+  <pre># Primeiro descobre qual é o block device do userdata:
+STOR_BLOCK=$(readlink -f /dev/block/by-name/userdata | sed 's/p[0-9]*$//')
+# Resultado típico: /dev/block/mmcblk0
+
+# Pergunta o tamanho total:
+blockdev --getsize64 /dev/block/mmcblk0
+# Retorna bytes do device inteiro (todas as partições somadas)</pre>
+
+  <h4>Fallback se blockdev falhar</h4>
+  <pre># Se blockdev der erro (DAC restritivo, etc), usa df:
+df /data | awk 'NR==2{print $2}'    # KB do /data
+# Subestima, mas serve pra confirmar a ordem de grandeza</pre>
+
+  <div class="callout teach">
+    <strong>O que é block device, by-name, userdata</strong>
+    <p><strong>Block device</strong> é como o Linux representa dispositivos de armazenamento — arquivos especiais em <code>/dev/block/</code>. <code>/dev/block/mmcblk0</code> = o chip eMMC inteiro. <code>/dev/block/mmcblk0p12</code> = partição 12 desse chip.</p>
+    <p><strong>by-name/</strong> é um diretório onde o Android cria <em>links simbólicos</em> com nomes amigáveis pras partições. <code>/dev/block/by-name/userdata</code> aponta pra partição onde fica <code>/data</code>. <code>readlink -f</code> resolve o link pra encontrar o block device real.</p>
+  </div>
+</div>
+
+<h2 id="t-ram-info">Teste 5 — Informações de RAM</h2>
+
+<div class="test-card">
+  <p><strong>O que faz:</strong> lê quanto de RAM o device tem, quanto tá disponível, e tenta identificar o tipo de LPDDR. Compara o total com o esperado do profile (PASS se &gt;= esperado).</p>
+
+  <h4>Comandos</h4>
+  <pre>grep MemTotal     /proc/meminfo | awk '{print $2}'   # KB total instalado
+grep MemAvailable /proc/meminfo | awk '{print $2}'   # KB livre pra alocar AGORA</pre>
+
+  <div class="callout teach">
+    <strong>Diferença entre MemTotal e MemAvailable</strong>
+    <p><strong>MemTotal</strong> é a RAM física instalada no aparelho (depois do kernel reservar uma parte pra si). Num device com 1 GB físico, MemTotal vem como ~860 MB (kernel consumiu 164 MB pra coisas internas).</p>
+    <p><strong>MemAvailable</strong> é quanto a gente pode pedir pro kernel <em>agora</em>. É bem menor — o Android já ocupou várias centenas de MB com zygote, system_server, surfaceflinger, etc. Num device com 1 GB total, MemAvailable fica em ~300-400 MB.</p>
+    <p>Pro teste de RAM, usamos MemAvailable como base — não dá pra testar o que o sistema tá usando, senão dá OOM.</p>
+  </div>
+
+  <h4>LPDDR type</h4>
+  <pre>getprop ro.boot.ddr_type
+getprop ro.boot.dram_type
+getprop vendor.boot.ddr_type
+cat /proc/bootdevice/dram_type    # fallback MTK</pre>
+
+  <div class="callout teach">
+    <strong>O que é LPDDR</strong>
+    <p><strong>LPDDR</strong> = <em>Low Power Double Data Rate</em>. É o tipo de RAM usada em celulares (versão de baixo consumo da DDR usada em PCs). Tem várias gerações:</p>
+    <ul style="margin: 4px 0;">
+      <li><strong>LPDDR3</strong> — gerações antigas, devices entry-level (até ~2016).</li>
+      <li><strong>LPDDR4 / LPDDR4X</strong> — mainstream (2016-2020).</li>
+      <li><strong>LPDDR5 / LPDDR5X</strong> — flagships atuais.</li>
+    </ul>
+    <p>Saber o tipo é informativo, mas não muda muito o teste. Em muitos devices essa property vem vazia — não é defeito, é o bootloader que não populou.</p>
+  </div>
+</div>
+
+<h2 id="t-stor-io">Teste 6 — I/O Test do storage (dd)</h2>
+
+<div class="test-card">
+  <p><strong>O que faz:</strong> escreve 512 MB de dados aleatórios no storage, lê de volta, mede velocidades de write e read, e confere a integridade comparando hash MD5 antes e depois. É o teste real do storage — pega chips que corrompem dados ou tão muito lentos.</p>
+
+  <h4>Sequência completa</h4>
+  <pre># Vai pro workdir
+cd /data/data/&lt;package&gt;/files/memtest_work    # ou /data/local/tmp/memtest_work no ScriptOnly
+
+# === Write ===
+T1=$(date +%s%3N)                            # timestamp em ms
+dd if=/dev/urandom of=testfile bs=4M count=128 conv=fsync
+# Explicação do dd:
+#   if=/dev/urandom  : input file = gerador de bytes aleatórios do kernel
+#   of=testfile      : output file = nome do arquivo a ser criado
+#   bs=4M            : block size 4 MB (cada read/write copia 4 MB)
+#   count=128        : faz isso 128 vezes (total = 4M * 128 = 512 MB)
+#   conv=fsync       : forçar flush pro disco no final, sem ficar cacheado em RAM
+T2=$(date +%s%3N)
+WRITE_MS=$((T2-T1))
+WRITE_MBPS=$(( 512 * 1000 / WRITE_MS ))      # MB/s
+
+# === Hash antes ===
+md5sum testfile &gt; hash_before.txt
+
+# === Limpar cache (se for root) ===
+sync                                          # garante que tudo foi escrito
+echo 3 &gt; /proc/sys/vm/drop_caches             # PRECISA UID 0 — limpa page cache
+# Se não for root, falha silenciosamente (não bloqueia)
+
+# === Read ===
+T3=$(date +%s%3N)
+dd if=testfile of=/dev/null bs=4M             # lê e descarta
+T4=$(date +%s%3N)
+READ_MS=$((T4-T3))
+READ_MBPS=$(( 512 * 1000 / READ_MS ))
+
+# === Hash depois ===
+md5sum testfile &gt; hash_after.txt
+diff hash_before.txt hash_after.txt           # tem que ser igual</pre>
+
+  <div class="callout teach">
+    <strong>O que é /dev/urandom</strong>
+    <p>É um arquivo especial do Linux que <strong>gera bytes aleatórios "infinitamente"</strong> quando você lê dele. Usado em testes porque dados aleatórios são incompressíveis — o controlador do storage não pode "trapacear" comprimindo, então a velocidade medida é real.</p>
+  </div>
+
+  <div class="callout teach">
+    <strong>O que é page cache e por que <code>drop_caches</code> importa</strong>
+    <p>Quando você lê um arquivo no Linux, o kernel guarda uma cópia na RAM (page cache). Se você ler de novo logo em seguida, ele entrega da RAM em vez de ir no disco — muito mais rápido.</p>
+    <p>Pro nosso teste, isso é problema: se a gente escreve e logo lê, a leitura pode vir do cache RAM em vez do storage de verdade, e mediríamos velocidade de RAM (super alta) achando que é storage.</p>
+    <p>Por isso <code>echo 3 &gt; /proc/sys/vm/drop_caches</code> entre write e read — força o kernel a esquecer o cache. Como exige root, sem root o read pode vir inflado. Mitigamos usando 512 MB de teste (geralmente maior que o cache disponível).</p>
+  </div>
+
+  <h4>Critérios de FAIL</h4>
+  <ul>
+    <li><code>WRITE_MBPS</code> abaixo de <code>MIN_WRITE_MBPS</code> (do profile)</li>
+    <li><code>READ_MBPS</code> abaixo de <code>MIN_READ_MBPS</code> (do profile)</li>
+    <li>Hash MD5 antes ≠ hash MD5 depois (corrupção de dados)</li>
+    <li><code>dd</code> retornou exit code ≠ 0 (erro de I/O)</li>
+  </ul>
+</div>
+
+<h2 id="t-memtester">Teste 7 — Teste de RAM (memtester)</h2>
+
+<div class="test-card">
+  <p><strong>O que faz:</strong> exercita células de RAM com 16 padrões diferentes pra detectar defeitos físicos. É o teste mais crítico — falha aqui significa chip ruim.</p>
+
+  <div class="callout teach">
+    <strong>O que é o memtester</strong>
+    <p>É uma ferramenta open-source em C escrita por Charles Cazabon. Aloca um pedaço grande de RAM, escreve padrões específicos, lê de volta e checa se bate. Cada padrão exercita um tipo de defeito:</p>
+    <ul style="margin: 4px 0;">
+      <li><strong>Stuck Address</strong> — descobre células que sempre retornam o mesmo valor independente do que você escreveu.</li>
+      <li><strong>Walking Ones / Zeroes</strong> — escreve um bit ligado e os outros desligados, anda esse bit por todas posições — descobre células acopladas (uma afeta a outra).</li>
+      <li><strong>Checkerboard</strong> — alterna bits 010101... ou 101010... pra detectar problemas de pareamento.</li>
+      <li><strong>Bit Flip</strong> — inverte bits e testa retenção.</li>
+      <li><strong>Random Value</strong> — escreve aleatório, lê, compara — pega defeitos pattern-sensitive.</li>
+      <li><strong>Compare XOR/SUB/MUL/DIV/OR/AND</strong> — operações aritméticas/lógicas pra ativar paths diferentes no decoder.</li>
+      <li>... e mais 5 padrões.</li>
+    </ul>
+  </div>
+
+  <h4>Como o script roda</h4>
+  <pre># Localiza o binário (testa os caminhos em ordem):
+for candidate in /system/bin/memtester /system/xbin/memtester \
+                 /vendor/bin/memtester /data/local/tmp/memtester; do
+    [ -x "$candidate" ] && MEMTESTER_BIN="$candidate" &amp;&amp; break
+done
+
+# Calcula tamanho do teste (50% do MemAvailable, capped em 512 MB):
+MEMTEST_MB=$(( MEM_AVAIL_MB * 50 / 100 ))
+[ "$MEMTEST_MB" -gt 512 ] && MEMTEST_MB=512
+
+# Executa em background pra poder fazer polling:
+memtester ${MEMTEST_MB}M 1 &gt; memtester.log 2&gt;&amp;1 &amp;
+MEMTESTER_PID=$!
+
+# Loop de polling — reporta progresso a cada 10s, mata se passar timeout:
+while kill -0 "$MEMTESTER_PID" 2&gt;/dev/null; do
+    sleep 10
+    log "memtester em execução... ${ELAPSED}s/${TIMEOUT}s"
+    if [ "$ELAPSED" -ge "$TIMEOUT" ]; then
+        kill -9 "$MEMTESTER_PID"
+        fail "memtester excedeu timeout"
+    fi
+done</pre>
+
+  <h4>O critério de FAIL é triplo</h4>
+  <ul>
+    <li>Exit code ≠ 0 (memtester detectou erro)</li>
+    <li>Saída contém "FAILURE" (algum padrão falhou)</li>
+    <li>Timeout (10 min no quick, 1h no deep)</li>
+  </ul>
+
+  <h4>Cobertura realista</h4>
+  <p>Em um device com 1 GB de RAM:</p>
+  <ul>
+    <li>~860 MB visíveis pro kernel (MemTotal)</li>
+    <li>~340 MB disponíveis depois do Android subir (MemAvailable)</li>
+    <li>~170 MB testados pelo memtester (50% do available)</li>
+  </ul>
+  <p>Ou seja, ~20% das células físicas são tocadas em um run. Parece pouco, mas como o kernel <strong>aleatoriza</strong> qual página fica onde, ao longo de várias execuções diferentes (em devices diferentes do lote) <strong>quase todas células são exercitadas estatisticamente</strong>.</p>
+
+  <p>Pra cobertura próxima de 100% precisaria <strong>teste offline</strong> (memtest86+ no bootloader, com Android desligado) — projeto totalmente diferente.</p>
+</div>
+
+<h2 id="t-dmesg">Teste 8 — Análise do dmesg</h2>
+
+<div class="test-card">
+  <p><strong>O que faz:</strong> lê o log do kernel e procura mensagens de erro de hardware. Se o kernel já detectou algo errado durante o boot ou durante o teste, isso aparece no dmesg.</p>
+
+  <div class="callout teach">
+    <strong>O que é dmesg</strong>
+    <p><strong>dmesg</strong> = <em>diagnostic message</em>. É um buffer circular do kernel onde ele escreve mensagens de log: dispositivos detectados, erros de drivers, eventos de power management, panic, etc. <code>dmesg</code> sem argumentos imprime tudo. Em Android é a primeira coisa que olhamos quando algo está estranho.</p>
+  </div>
+
+  <h4>Padrões procurados (factory test)</h4>
+  <pre>grep -iE "I/O error|ufs error|mmc error|memory corruption|hardware error|ecc error|bad block|uncorrectable|panic"</pre>
+
+  <h4>O que cada termo indica</h4>
+  <table>
+    <thead><tr><th>Termo</th><th>Significa</th></tr></thead>
+    <tbody>
+      <tr><td><code>I/O error</code></td><td>Falha de leitura/escrita no storage</td></tr>
+      <tr><td><code>mmc error</code> / <code>ufs error</code></td><td>Driver MMC/UFS reportou erro</td></tr>
+      <tr><td><code>memory corruption</code></td><td>Kernel detectou que RAM tá corrompendo dados</td></tr>
+      <tr><td><code>ecc error</code></td><td>Erro corrigido por ECC — sinal precoce de degradação</td></tr>
+      <tr><td><code>bad block</code></td><td>Bloco do storage marcado como ruim</td></tr>
+      <tr><td><code>uncorrectable</code></td><td>Erro de ECC que NÃO foi corrigível — perda real</td></tr>
+      <tr><td><code>panic</code></td><td>Kernel parou — situação crítica</td></tr>
+    </tbody>
+  </table>
+
+  <h4>Permissão</h4>
+  <p>Em Android 10+, <code>dmesg</code> pode estar restrito (precisa root). Se vier vazio, o script reporta "dmesg: não disponível" mas <strong>não falha o teste</strong> — análise dmesg é complementar.</p>
+</div>
+
+<hr>
+
+<h2 id="deep">Deep RAM — o teste pesado</h2>
+
+<p>Existe um <strong>segundo script</strong>, <code>ram_diagnostic_deep_verbose_root_exec.sh</code>, que faz só teste de RAM mas <strong>muito mais profundo</strong>. Usado pra:</p>
+<ul>
+  <li>Devices que voltaram com reclamação de cliente (suspeito de RAM defeituosa)</li>
+  <li>Homologação de novo lote de chips</li>
+  <li>Confirmação de defeito antes de abrir RMA com fornecedor</li>
+</ul>
+
+<h3>O que muda</h3>
+<table>
+<thead><tr><th>Aspecto</th><th>Factory (quick)</th><th>Deep</th></tr></thead>
+<tbody>
+<tr><td><strong>Storage tests</strong></td><td>✅ todos</td><td>❌ não faz nenhum</td></tr>
+<tr><td><strong>RAM testada</strong></td><td>~50% do disponível</td><td><strong>~60% do disponível</strong></td></tr>
+<tr><td><strong>Loops do memtester</strong></td><td>1</td><td><strong>3</strong></td></tr>
+<tr><td><strong>Timeout</strong></td><td>10 min</td><td><strong>1 hora</strong></td></tr>
+<tr><td><strong>Dump de /proc/meminfo</strong></td><td>2 campos</td><td><strong>completo + 5 campos extras</strong></td></tr>
+<tr><td><strong>Patterns de dmesg</strong></td><td>focado em storage + RAM</td><td><strong>focado em RAM, OOM, page allocation, kernel BUG</strong></td></tr>
+<tr><td><strong>Root bootstrap</strong></td><td>Best-effort (continua sem root)</td><td><strong>Tenta agressivamente (faz <code>exec su 0</code>)</strong></td></tr>
+</tbody>
+</table>
+
+<div class="callout">
+  <strong>Por que mais loops</strong>
+  <p>Cada loop testa AS MESMAS células alocadas. Defeitos intermitentes (timing, retenção, térmicos) podem só aparecer na 2ª ou 3ª passagem, quando o chip já tá aquecido. 1 loop pega ~75% dos defeitos; 3 loops pega ~90%.</p>
+</div>
+
+<h3>Dump completo do /proc/meminfo</h3>
+<p>O deep faz <code>cat /proc/meminfo</code> inteiro pro log, em vez de só pegar MemTotal/MemAvailable. Útil pra correlacionar depois — se o teste falhou, dá pra ver se tinha SwapIn alto, fragmentação, etc.</p>
+
+<h3>Padrões dmesg do deep</h3>
+<pre>grep -iE "memory corruption|hardware error|ecc error|uncorrectable|panic|oom|out of memory|page allocation failure|bad page|kernel BUG"</pre>
+
+<p>Termos extras vs factory:</p>
+<ul>
+  <li><code>oom</code> / <code>out of memory</code> — OOM killer disparou (sistema ficou sem RAM)</li>
+  <li><code>page allocation failure</code> — kernel não conseguiu alocar memória (fragmentação ou pressão extrema)</li>
+  <li><code>bad page</code> — kernel detectou página com corruption</li>
+  <li><code>kernel BUG</code> — assertion failure no kernel (frequentemente disparado por RAM defeituosa)</li>
+</ul>
+
+<hr>
+
+<h2 id="replicar">Como replicar em outro projeto</h2>
+
+<p>Se você precisa fazer testes parecidos no projeto que cuida, tem 2 caminhos:</p>
+
+<h3>Caminho minimalista (só scripts)</h3>
+<ol>
+  <li>Copie <code>full_memtest.sh</code> e <code>ram_diagnostic_deep_verbose_root_exec.sh</code> do nosso repositório.</li>
+  <li>Compile <code>memtester</code> pra ABI do seu device. Source: <a href="https://pyropus.ca/software/memtester/" target="_blank">pyropus.ca/software/memtester</a> ou através do AOSP em <code>external/memtester/</code>.</li>
+  <li>Crie um wrapper que faça <code>adb push</code> dos scripts + binário pro device, rode via <code>adb shell</code>, e puxe o log de volta.</li>
+  <li>Crie um arquivo <code>.conf</code> com os thresholds do seu SKU (MIN_WRITE_MBPS, EXPECTED_RAM_GB, etc).</li>
+</ol>
+
+<h3>Caminho APK (com UI no device)</h3>
+<ol>
+  <li>Copie a classe <code>ScriptRunner.kt</code> do nosso projeto — ela extrai um asset, roda via ProcessBuilder e emite eventos linha-a-linha.</li>
+  <li>Embarque os scripts em <code>assets/</code> do seu APK.</li>
+  <li>Compile o APK normal (<code>./gradlew assembleRelease</code>).</li>
+  <li>Empacote o APK como prebuilt no AOSP do device (ver <a href="#aosp-mudancas">Mudanças no AOSP</a>).</li>
+  <li>Adicione <code>PRODUCT_PACKAGES += SeuTeste memtester</code> e configure SELinux Permissive.</li>
+  <li>Rebuild + flash. O AOSP re-assina automaticamente.</li>
+</ol>
+
+<h3>Validar a integração</h3>
+<p>Use o <code>pre_check.sh</code> do nosso ScriptOnly — ele lista o que funciona e o que está bloqueado num device específico, <strong>sem alterar nada</strong>. Comando: <code>bash pre_check.sh</code>.</p>
+
+<hr>
+
+<h2 id="glossario">📖 Glossário completo</h2>
+
+<p>Todas as siglas e termos técnicos usados na página, em ordem alfabética.</p>
+
+<dl class="glossary">
+
+<dt>ABI (Application Binary Interface)</dt>
+<dd>Formato binário compatível com uma arquitetura específica de processador. Códigos compilados pra <code>armeabi-v7a</code> só rodam em ARM 32-bit; <code>arm64-v8a</code> só em ARM 64-bit. É por isso que temos 2 binários do memtester (arm32 e arm64).</dd>
+
+<dt>adb (Android Debug Bridge)</dt>
+<dd>Ferramenta de linha de comando da Google que permite o PC interagir com um device Android via USB/WiFi. Vem com Android SDK. Comandos típicos: <code>adb install</code>, <code>adb shell</code>, <code>adb push</code>, <code>adb logcat</code>.</dd>
+
+<dt>adb root</dt>
+<dd>Comando que reinicia o daemon adb no device rodando como UID 0 (root). Só funciona em builds userdebug/eng. Em devices MTK no Windows às vezes quebra o adb-server — preferir <code>adb shell su 0</code>.</dd>
+
+<dt>Android.bp / Android.mk</dt>
+<dd>Arquivos que definem como o AOSP compila um módulo. <code>Android.bp</code> é o formato moderno (Soong, sintaxe JSON-like). <code>Android.mk</code> é o antigo (Make). Servem pra mesma coisa: declarar o que é o módulo (app, lib, binário) e suas dependências.</dd>
+
+<dt>AOSP (Android Open Source Project)</dt>
+<dd>Código-fonte completo do Android, mantido pelo Google. Cada fabricante baixa, customiza pro hardware deles, compila e flasha no device.</dd>
+
+<dt>BoardConfig.mk</dt>
+<dd>Arquivo da árvore AOSP que define configurações específicas do hardware: ABI, kernel cmdline, partições, etc. Fica em <code>device/&lt;vendor&gt;/&lt;device&gt;/BoardConfig.mk</code>.</dd>
+
+<dt>block device</dt>
+<dd>Arquivo especial em <code>/dev/block/</code> que representa um dispositivo de armazenamento. Ex: <code>/dev/block/mmcblk0</code> = o chip eMMC inteiro. <code>/dev/block/mmcblk0p12</code> = partição 12.</dd>
+
+<dt>BOARD_KERNEL_CMDLINE</dt>
+<dd>Variável do BoardConfig.mk que define argumentos passados pro kernel no boot. Ex: <code>androidboot.selinux=permissive</code>. <strong>Em SoCs MediaTek (MT6761), essa variável é ignorada</strong> — a cmdline é montada pelo LK em runtime.</dd>
+
+<dt>CID (Card Identification)</dt>
+<dd>Identificador único de 16 bytes de um chip eMMC, gravado de fábrica no controlador. Inclui MID (Manufacturer ID) e PNM (Product Name). Exposto em <code>/sys/class/mmc_host/mmc0/mmc0:0001/cid</code>.</dd>
+
+<dt>cmdline (kernel command line)</dt>
+<dd>String de argumentos passada pro kernel Linux no boot. Inclui parâmetros como <code>androidboot.selinux=permissive</code>, <code>console=tty0</code>, etc. Montada pelo bootloader.</dd>
+
+<dt>DAC (Discretionary Access Control)</dt>
+<dd>Sistema de permissões Unix tradicional, baseado em dono (user/group) e modo (rwxrwxrwx). É o que você vê com <code>ls -l</code>. Funciona em conjunto com SELinux MAC.</dd>
+
+<dt>dd</dt>
+<dd>Comando Unix antigo (anos 70) pra cópia byte-a-byte entre arquivos. Sintaxe: <code>dd if=&lt;input&gt; of=&lt;output&gt; bs=&lt;block_size&gt; count=&lt;n&gt;</code>. Usado no nosso projeto pra testar velocidade de I/O do storage.</dd>
+
+<dt>dmesg (diagnostic message)</dt>
+<dd>Buffer circular do kernel Linux com mensagens de log: drivers, erros, eventos. <code>dmesg</code> (sem args) imprime tudo. Restrito em Android 10+ — pode precisar root.</dd>
+
+<dt>drop_caches</dt>
+<dd>Arquivo especial em <code>/proc/sys/vm/drop_caches</code>. Escrever <code>3</code> nele força o kernel a esvaziar o page cache. Precisa root. No nosso teste, usamos entre write e read pra garantir que o read venha do storage de verdade e não da RAM.</dd>
+
+<dt>ECC (Error Correcting Code)</dt>
+<dd>Esquema de redundância em memórias e storage que detecta e corrige erros de bit. Quando um bit flipa por causa de raios cósmicos ou desgaste, o ECC corrige sem perda. Quando o erro é "uncorrectable", aí teve perda real de dado.</dd>
+
+<dt>eMMC (embedded MultiMediaCard)</dt>
+<dd>Padrão de chip de armazenamento flash usado em devices entry-level. Velocidade típica: 50-100 MB/s write, 200-300 MB/s read. Comunica via barramento MMC.</dd>
+
+<dt>Enforcing (modo SELinux)</dt>
+<dd>Modo padrão de SELinux. Bloqueia acessos que violam a policy. Em produção pra cliente final, Android usa Enforcing.</dd>
+
+<dt>EXT_CSD (Extended Card-Specific Data)</dt>
+<dd>Estrutura de 512 bytes dentro do chip eMMC com metadados detalhados: capacidade, life time A, life time B, pre-EOL, configurações de boot, etc. Lido via comando CMD8 do protocolo MMC. Os bytes 267-269 são life time / pre-EOL.</dd>
+
+<dt>ext4</dt>
+<dd>Sistema de arquivos Linux padrão. <code>/data</code> em devices Android antigos era ext4. Hoje usa F2FS em devices novos.</dd>
+
+<dt>F2FS (Flash-Friendly File System)</dt>
+<dd>Sistema de arquivos otimizado pra storage flash (eMMC/UFS). Mais eficiente que ext4 pra padrões de I/O de mobile. Padrão em Android 10+ pra <code>/data</code>.</dd>
+
+<dt>fastboot</dt>
+<dd>Protocolo/modo de boot do Android usado pra flashar imagens nas partições. Comando <code>fastboot flash &lt;partition&gt; &lt;image.img&gt;</code> grava o arquivo na partição correspondente. Device entra em fastboot via combinação de teclas ou <code>adb reboot bootloader</code>.</dd>
+
+<dt>getprop</dt>
+<dd>Comando do Android que lê system properties (pares chave=valor preenchidos pelo bootloader/init/build). Ex: <code>getprop ro.product.model</code> retorna o nome do modelo.</dd>
+
+<dt>HAL (Hardware Abstraction Layer)</dt>
+<dd>Camada do Android que isola o framework Java do hardware específico. Cada vendor implementa seu HAL pra câmera, audio, sensors, etc.</dd>
+
+<dt>ioctl</dt>
+<dd>Syscall do Linux pra operações específicas em devices que não cabem em read/write padrão. Ex: <code>mmc-utils</code> usa ioctl pra mandar comandos MMC direto pro chip. Geralmente requer privilégios.</dd>
+
+<dt>JEDEC</dt>
+<dd>Organização que define padrões de memória semicondutora. Especifica o protocolo eMMC, formato do EXT_CSD, etc. Os valores 0x01–0x0B do LifeTime/Pre-EOL vêm da spec JEDEC eMMC.</dd>
+
+<dt>kernel</dt>
+<dd>Núcleo do sistema operacional. Gerencia processos, memória, drivers de hardware, sistemas de arquivos. O Android usa o kernel Linux.</dd>
+
+<dt>LifeTime A / LifeTime B</dt>
+<dd>Estimativas de desgaste das células de memória flash, calculadas pelo controlador interno do chip eMMC. A geralmente é SLC (mais resistente, pra metadados), B é MLC/TLC (menos resistente, pra dados). Valores de 0x01 (0-10% usado) até 0x0B (excedido).</dd>
+
+<dt>LK (Little Kernel)</dt>
+<dd>Bootloader usado em SoCs MediaTek. É quem inicializa o hardware antes do kernel Linux subir. Em MT6761, o LK é quem monta a cmdline do kernel — por isso BOARD_KERNEL_CMDLINE no AOSP não funciona, tem que mexer no project file do LK.</dd>
+
+<dt>LPDDR (Low Power DDR)</dt>
+<dd>Versão da memória DDR otimizada pra baixo consumo, usada em devices móveis. Versões: LPDDR3 (antiga), LPDDR4/4X (mainstream), LPDDR5/5X (flagship).</dd>
+
+<dt>MAC (Mandatory Access Control)</dt>
+<dd>Modelo de segurança onde o SO impõe regras independente do dono do arquivo (oposto de DAC). SELinux é uma implementação de MAC.</dd>
+
+<dt>MD5</dt>
+<dd>Algoritmo de hash que produz um "resumo" de 128 bits de qualquer arquivo. Usado no nosso teste pra comparar bytes antes/depois do write+read — se o hash mudou, dados corromperam. Não é seguro pra criptografia, mas serve pra integridade.</dd>
+
+<dt>MID (Manufacturer ID)</dt>
+<dd>Bytes do CID do eMMC que identificam o fabricante. Ex: 0x15=Samsung, 0x90=SK Hynix, 0x70=Kingston.</dd>
+
+<dt>mksh (MirBSD Korn Shell)</dt>
+<dd>Shell padrão do Android (substituto do bash). Acessado via <code>/system/bin/sh</code>. Compatível com a maior parte do POSIX shell, com pequenas diferenças.</dd>
+
+<dt>mlock</dt>
+<dd>Syscall do Linux que trava uma região de RAM, impedindo o kernel de mover ela pra swap ou reciclar páginas. Usado pelo memtester pra garantir que o teste rode na mesma RAM física do começo ao fim.</dd>
+
+<dt>MMC</dt>
+<dd>MultiMediaCard. Padrão original de cartões de memória flash. eMMC = versão soldada na placa.</dd>
+
+<dt>MTK (MediaTek)</dt>
+<dd>Fabricante taiwanês de SoCs (chipsets) pra celulares e tablets, especialmente segmento mid/entry-level. MT6761 (Helio A22) é um SoC MTK usado no Positivo L400.</dd>
+
+<dt>OOM (Out of Memory)</dt>
+<dd>Situação onde o kernel não tem mais RAM pra alocar. O OOM killer escolhe um processo pra matar e libera RAM. Em dmesg aparece como "killed process X" ou "out of memory".</dd>
+
+<dt>page cache</dt>
+<dd>Cache de páginas de arquivo em RAM mantido pelo kernel. Acelera leituras repetidas. Pode mascarar problemas em testes de I/O — daí a importância do drop_caches.</dd>
+
+<dt>Permissive (modo SELinux)</dt>
+<dd>Modo de SELinux que loga violações mas não bloqueia. Usado pra debug/desenvolvimento e (no nosso caso) pra teste de fábrica.</dd>
+
+<dt>platform_app</dt>
+<dd>Tipo de app Android com privilégios elevados, instalado em <code>/system/priv-app/</code> ou <code>/product/priv-app/</code> e assinado com a platform key da imagem. Tem <code>RLIMIT_MEMLOCK=unlimited</code> e acesso a APIs system-level.</dd>
+
+<dt>PNM (Product Name)</dt>
+<dd>Bytes do CID do eMMC que identificam o modelo do chip, codificados em ASCII. Ex: "FN62" é uma família Samsung KLM.</dd>
+
+<dt>Pre-EOL (Pre End-of-Life)</dt>
+<dd>Indicador do chip eMMC sobre proximidade do fim de vida. Valores: 0x01 (Normal), 0x02 (Warning ~80% spare consumido), 0x03 (Urgent — spare esgotado).</dd>
+
+<dt>ProcessBuilder</dt>
+<dd>Classe Java/Kotlin pra criar processos filhos. No nosso APK, usado pra rodar shell scripts: <code>ProcessBuilder("/system/bin/sh", "/path/to/script.sh")</code>.</dd>
+
+<dt>/product (partição)</dt>
+<dd>Partição Android (desde Android 9) onde ficam apps customizados do produto/region. APKs como prebuilt vão em <code>/product/priv-app/</code>. Antes de Android 9, tudo era em <code>/system/priv-app/</code>.</dd>
+
+<dt>/proc</dt>
+<dd>Sistema de arquivos virtual do Linux que expõe info de processos e do kernel. Ex: <code>/proc/meminfo</code>, <code>/proc/cpuinfo</code>, <code>/proc/PID/status</code>. Não existe no disco — é gerado em memória pelo kernel.</dd>
+
+<dt>RLIMIT_MEMLOCK</dt>
+<dd>Limite por processo pra quanto de RAM pode ser travada com mlock. Definido baseado no contexto SELinux do processo. <code>untrusted_app</code> tem ~8 MB, <code>platform_app</code> tem unlimited.</dd>
+
+<dt>RMA (Return Merchandise Authorization)</dt>
+<dd>Processo de devolução de produto defeituoso pelo cliente. Cada RMA custa caro (logística reversa, reposição, perda de reputação). O teste de fábrica existe pra evitar RMAs por defeito de RAM/storage.</dd>
+
+<dt>SDK (Software Development Kit)</dt>
+<dd>Conjunto de ferramentas pra desenvolver pra uma plataforma. Android SDK inclui <code>adb</code>, <code>fastboot</code>, emulador, libs.</dd>
+
+<dt>SELinux (Security-Enhanced Linux)</dt>
+<dd>Sistema de segurança MAC que controla acessos baseado em contextos de segurança (não em dono/grupo). Tem 2 modos: Enforcing (bloqueia) e Permissive (só loga).</dd>
+
+<dt>SLC / MLC / TLC</dt>
+<dd>Tipos de células de memória flash NAND:
+  <ul>
+    <li><strong>SLC</strong> (Single-Level Cell) — 1 bit por célula, mais rápido e durável, mais caro.</li>
+    <li><strong>MLC</strong> (Multi-Level Cell) — 2 bits/célula, balanceado.</li>
+    <li><strong>TLC</strong> (Triple-Level Cell) — 3 bits/célula, mais barato e denso, menos durável.</li>
+  </ul>
+  Chips eMMC modernos têm uma mistura — SLC pra área de boot/metadata e TLC pro grosso dos dados.
+</dd>
+
+<dt>SoC (System on Chip)</dt>
+<dd>Chip único que integra CPU, GPU, modem, controladores de RAM/storage, etc. Ex: MediaTek MT6761, Spreadtrum SC9863A, Qualcomm Snapdragon 8 Gen 2.</dd>
+
+<dt>SPRD (Spreadtrum, hoje Unisoc)</dt>
+<dd>Fabricante chinês de SoCs pra mobile. Concorrente direto da MediaTek em segmento entry/mid. Usado nos modelos Positivo TL10 e T2070D.</dd>
+
+<dt>/sys (sysfs)</dt>
+<dd>Sistema de arquivos virtual que expõe info de hardware e drivers. Ex: <code>/sys/class/mmc_host/...</code> tem todos chips MMC detectados.</dd>
+
+<dt>system properties</dt>
+<dd>Sistema chave=valor do Android usado pra config global. Lido com <code>getprop</code>, escrito com <code>setprop</code>. Preenchido por bootloader, init, build system e código de runtime.</dd>
+
+<dt>UFS (Universal Flash Storage)</dt>
+<dd>Padrão moderno de storage flash, sucessor do eMMC, usado em devices high-end. Muito mais rápido (até 1 GB/s). Usa interface serial SCSI em vez do barramento MMC paralelo.</dd>
+
+<dt>UID (User ID)</dt>
+<dd>Número que identifica um usuário/processo no Unix. UID 0 = root. UID 1000 = system. UID 2000 = shell (usado pelo adb). UIDs 10000+ = apps comuns.</dd>
+
+<dt>userdebug / user / eng (build types)</dt>
+<dd>Tipos de build do AOSP. <strong>user</strong> = produção (sem root, sem debug). <strong>userdebug</strong> = produção com <code>su</code> e debug habilitados. <strong>eng</strong> = engineering, máximo de logs/tools.</dd>
+
+</dl>
+
+<p class="footnote" style="margin-top: 40px;">Documento gerado a partir do código-fonte de <code>full_memtest.sh</code> e <code>ram_diagnostic_deep_verbose_root_exec.sh</code>. Versão técnica enxuta disponível em <code>test-coverage.html</code>.</p>
+
+</main>
+</div>
+</body>
+</html>
