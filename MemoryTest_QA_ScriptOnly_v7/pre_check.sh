@@ -12,7 +12,10 @@
 #   - PARTIAL      : roda run_full.sh com cobertura reduzida OU pede AOSP
 #   - NOT READY    : pede AOSP Opção 3 antes de testar (script-only nao basta)
 #
-# Esse script NAO modifica o device. So le info via adb shell.
+# Este script ESCALA privilegios igual ao run_full.sh (adb root +
+# setenforce 0) pra prever exatamente o que o teste real vai conseguir.
+# Sem isso, o veredicto saia enganoso (dizia NOT READY em devices
+# que o teste real roda 100%).
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -96,6 +99,83 @@ print_kv "ABI"            "${ABI:-N/A}"
 print_kv "Fingerprint"    "${FINGERPRINT:-N/A}"
 
 # ============================================================
+# ESCALACAO DE PRIVILEGIOS (mesmo fluxo do run_full.sh)
+# Sem isso o pre_check da veredicto enganoso porque mlock, SELinux,
+# leitura de /sys/.../health_descriptor, etc dependem de uid root +
+# Permissive.
+# ============================================================
+print_section "PRIVILEGIOS"
+
+INITIAL_UID=$(adb shell id -u 2>/dev/null | tr -d '\r')
+[ -z "$INITIAL_UID" ] && INITIAL_UID="?"
+print_kv "UID inicial"    "$INITIAL_UID"
+
+IS_ROOT=0
+ROOT_METHOD="none"
+if [ "$INITIAL_UID" = "0" ]; then
+    IS_ROOT=1
+    ROOT_METHOD="adbd"
+    print_check "$SYM_OK" "root" "adbd ja eh root"
+elif [ "$BUILD_TYPE" = "user" ]; then
+    print_check "$SYM_FAIL" "adb root" "build 'user' nao permite — precisa AOSP Opcao 3"
+    BLOCKERS=$((BLOCKERS+1))
+else
+    # Plano A: tenta 'su 0' primeiro — nao trava o device como adb root pode
+    # travar em alguns MTK. Confirma com 'su 0 id -u' retornando 0.
+    SU_UID=$(adb shell "su 0 id -u" 2>/dev/null | tr -d '\r')
+    if [ "$SU_UID" = "0" ]; then
+        IS_ROOT=1
+        ROOT_METHOD="su"
+        print_check "$SYM_OK" "root via su" "OK (su 0 funciona — evita adb root que pode travar)"
+    else
+        # Plano B: adb root tradicional, com retry MTK+Windows
+        print_check "$SYM_INF" "su" "indisponivel — caindo no adb root tradicional"
+        adb root >/dev/null 2>&1 || true
+        sleep 3
+        # MTK + Windows: adb root pode quebrar adb-server, restart preventivo
+        if ! adb shell true >/dev/null 2>&1; then
+            adb kill-server >/dev/null 2>&1 || true
+            sleep 1
+            adb start-server >/dev/null 2>&1 || true
+        fi
+        for _ in $(seq 1 10); do
+            adb shell true >/dev/null 2>&1 && break
+            sleep 2
+        done
+        if adb shell true >/dev/null 2>&1; then
+            NEW_UID=$(adb shell id -u 2>/dev/null | tr -d '\r')
+            if [ "$NEW_UID" = "0" ]; then
+                IS_ROOT=1
+                ROOT_METHOD="adbd"
+                print_check "$SYM_OK" "adb root" "OK (adbd agora roda como root)"
+            else
+                print_check "$SYM_WARN" "adb root" "tentou mas uid ainda $NEW_UID"
+                PARTIALS=$((PARTIALS+1))
+            fi
+        else
+            print_check "$SYM_FAIL" "adb root" "ERRO: device nao respondeu apos adb root"
+            BLOCKERS=$((BLOCKERS+1))
+        fi
+    fi
+fi
+
+# setenforce 0 — usa su 0 se for o caso, senao adb shell direto
+if [ "$IS_ROOT" = "1" ]; then
+    if [ "$ROOT_METHOD" = "su" ]; then
+        SETENFORCE_CMD='su 0 setenforce 0'
+    else
+        SETENFORCE_CMD='setenforce 0'
+    fi
+    if adb shell "$SETENFORCE_CMD" >/dev/null 2>&1; then
+        print_check "$SYM_OK" "setenforce 0" "OK — SELinux ja em Permissive p/ probes abaixo"
+    else
+        print_check "$SYM_INF" "setenforce 0" "falhou (sepolicy estrita) — checks usam estado original"
+    fi
+else
+    print_check "$SYM_INF" "setenforce 0" "pulado (sem root)"
+fi
+
+# ============================================================
 # RAM
 # ============================================================
 print_section "RAM"
@@ -138,10 +218,16 @@ fi
 print_section "mlock — cobertura efetiva do teste de RAM"
 
 MLOCK_RAW=$(adb shell "ulimit -l" 2>/dev/null | tr -d '\r')
-print_kv "RLIMIT_MEMLOCK"  "$MLOCK_RAW (KB; valor que o memtester pode travar)"
+print_kv "RLIMIT_MEMLOCK"  "$MLOCK_RAW (KB; valor reportado pelo shell)"
 
 MLOCK_COVERAGE=0
-if [ "$MLOCK_RAW" = "unlimited" ]; then
+if [ "$IS_ROOT" = "1" ]; then
+    # Processo root tem CAP_IPC_LOCK, que faz o kernel ignorar RLIMIT_MEMLOCK.
+    # Mesmo que ulimit -l reporte 8 MB, o memtester como root consegue mlock
+    # de GBs (confirmado em logs reais com mlock 1574 MB em TL10).
+    print_check "$SYM_OK" "Cobertura RAM via memtester" "100% (root bypassa RLIMIT_MEMLOCK via CAP_IPC_LOCK)"
+    MLOCK_COVERAGE=100
+elif [ "$MLOCK_RAW" = "unlimited" ]; then
     print_check "$SYM_OK" "Cobertura RAM via memtester" "100% (mlock unlimited)"
     MLOCK_COVERAGE=100
 elif [ -n "$MLOCK_RAW" ] && [ "$MLOCK_RAW" -gt 0 ] 2>/dev/null; then
@@ -166,69 +252,125 @@ fi
 
 # ============================================================
 # Storage health (life_time / pre_eol_info / CID / UFS)
+#
+# Usa probe direto dos paths conhecidos (mesma lista do full_memtest.sh)
+# em vez de 'find -type f'. Motivo: sysfs nodes podem nao casar com
+# -type f em alguns kernels (especialmente UFS health_descriptor), e
+# alguns find do toybox pulam paths sob /sys/bus/platform/devices/.
+# Probe direto via 'cat' so precisa do path final, e e mais robusto.
 # ============================================================
 print_section "Storage health"
 
-# life_time (eMMC formato Allwinner-style ou separado)
-LIFE_TIME_PATH=$(adb shell "find /sys -name life_time -type f 2>/dev/null | head -n1" 2>/dev/null | tr -d '\r')
-if [ -n "$LIFE_TIME_PATH" ]; then
-    LIFE_VAL=$(adb shell "cat '$LIFE_TIME_PATH' 2>/dev/null" 2>/dev/null | tr -d '\r')
+# Helper: para cada glob, expande no device e retorna o primeiro path
+# que existe. Patterns sao expandidos pela shell do device, nao do host.
+probe_first_path() {
+    adb shell "for p in $*; do [ -e \"\$p\" ] && echo \"\$p\" && break; done" 2>/dev/null | tr -d '\r' | head -n1
+}
+
+read_path_value() {
+    adb shell "cat '$1' 2>/dev/null" 2>/dev/null | tr -d '\r'
+}
+
+# --- life_time ---
+# Ordem (igual full_memtest.sh): eMMC arquivo unico, UFS estimation_a/b, MTK /proc/bootdevice
+LIFE_PATH=$(probe_first_path \
+    "/sys/class/mmc_host/mmc*/mmc*:*/life_time" \
+    "/sys/block/mmcblk*/device/life_time")
+
+if [ -n "$LIFE_PATH" ]; then
+    LIFE_VAL=$(read_path_value "$LIFE_PATH")
     if [ -n "$LIFE_VAL" ]; then
-        print_check "$SYM_OK" "life_time (eMMC)" "valor=$LIFE_VAL ($LIFE_TIME_PATH)"
+        print_check "$SYM_OK" "life_time (eMMC unico)" "valor=$LIFE_VAL ($LIFE_PATH)"
     else
-        print_check "$SYM_WARN" "life_time (eMMC)" "arquivo existe mas leitura vazia (provavel SELinux)"
+        print_check "$SYM_WARN" "life_time (eMMC unico)" "path existe mas leitura vazia ($LIFE_PATH)"
         PARTIALS=$((PARTIALS+1))
     fi
 else
-    # tenta UFS
-    UFS_LIFE=$(adb shell "find /sys -name 'life_time_estimation_*' -type f 2>/dev/null | head -n1" 2>/dev/null | tr -d '\r')
-    if [ -n "$UFS_LIFE" ]; then
-        UFS_VAL=$(adb shell "cat '$UFS_LIFE' 2>/dev/null" 2>/dev/null | tr -d '\r')
+    UFS_LIFE_PATH=$(probe_first_path \
+        "/sys/devices/platform/soc/*ufs*/health_descriptor/life_time_estimation_a" \
+        "/sys/bus/platform/devices/*ufs*/health_descriptor/life_time_estimation_a")
+    if [ -n "$UFS_LIFE_PATH" ]; then
+        UFS_VAL=$(read_path_value "$UFS_LIFE_PATH")
         if [ -n "$UFS_VAL" ]; then
-            print_check "$SYM_OK" "life_time (UFS)" "valor=$UFS_VAL"
+            print_check "$SYM_OK" "life_time (UFS)" "valor=$UFS_VAL ($UFS_LIFE_PATH)"
         else
-            print_check "$SYM_WARN" "life_time (UFS)" "arquivo existe mas leitura vazia"
+            print_check "$SYM_WARN" "life_time (UFS)" "path existe mas leitura vazia"
             PARTIALS=$((PARTIALS+1))
         fi
     else
-        print_check "$SYM_FAIL" "life_time" "kernel nao expoe — saude da memoria nao detectavel"
-        PARTIALS=$((PARTIALS+1))
+        MTK_LIFE_PATH=$(probe_first_path \
+            "/proc/bootdevice/life_time_est_typ_a" \
+            "/proc/bootdevice/lifetimeA")
+        if [ -n "$MTK_LIFE_PATH" ]; then
+            MTK_VAL=$(read_path_value "$MTK_LIFE_PATH")
+            print_check "$SYM_OK" "life_time (MTK /proc/bootdevice)" "valor=${MTK_VAL:-vazio} ($MTK_LIFE_PATH)"
+        else
+            print_check "$SYM_FAIL" "life_time" "kernel nao expoe em nenhum path conhecido"
+            PARTIALS=$((PARTIALS+1))
+        fi
     fi
 fi
 
-# pre_eol_info
-PRE_EOL_PATH=$(adb shell "find /sys -name pre_eol_info -type f 2>/dev/null | head -n1" 2>/dev/null | tr -d '\r')
+# --- pre_eol_info ---
+# Nota: TL10 (SPRD UFS) usa nome 'eol_info' (sem prefixo pre_).
+# Outros vendors usam 'pre_eol_info' padrao JEDEC.
+PRE_EOL_PATH=$(probe_first_path \
+    "/sys/class/mmc_host/mmc*/mmc*:*/pre_eol_info" \
+    "/sys/block/mmcblk*/device/pre_eol_info" \
+    "/sys/devices/platform/soc/*ufs*/health_descriptor/pre_eol_info" \
+    "/sys/devices/platform/soc/*ufs*/health_descriptor/eol_info" \
+    "/sys/bus/platform/devices/*ufs*/health_descriptor/pre_eol_info" \
+    "/sys/bus/platform/devices/*ufs*/health_descriptor/eol_info" \
+    "/proc/bootdevice/pre_eol_info")
+
 if [ -n "$PRE_EOL_PATH" ]; then
-    PRE_EOL_VAL=$(adb shell "cat '$PRE_EOL_PATH' 2>/dev/null" 2>/dev/null | tr -d '\r')
+    PRE_EOL_VAL=$(read_path_value "$PRE_EOL_PATH")
     if [ -n "$PRE_EOL_VAL" ]; then
-        print_check "$SYM_OK" "pre_eol_info" "valor=$PRE_EOL_VAL"
+        print_check "$SYM_OK" "pre_eol_info" "valor=$PRE_EOL_VAL ($PRE_EOL_PATH)"
     else
-        print_check "$SYM_WARN" "pre_eol_info" "arquivo existe mas leitura vazia"
+        # Alguns chips UFS nao populam esse byte; path existe mas conteudo eh vazio.
+        # Coerente com o que o full_memtest mostra como N/A.
+        print_check "$SYM_WARN" "pre_eol_info" "path existe mas valor vazio ($PRE_EOL_PATH) — chip nao populou"
         PARTIALS=$((PARTIALS+1))
     fi
 else
-    print_check "$SYM_FAIL" "pre_eol_info" "kernel nao expoe"
+    print_check "$SYM_FAIL" "pre_eol_info" "kernel nao expoe em nenhum path conhecido"
     PARTIALS=$((PARTIALS+1))
 fi
 
-# CID (eMMC) ou product_name (UFS) - identifica vendor/modelo
-CID_PATH=$(adb shell "find /sys -name cid -type f 2>/dev/null | head -n1" 2>/dev/null | tr -d '\r')
+# --- CID (eMMC) ou product_name+manufacturer (UFS) ---
+CID_PATH=$(probe_first_path \
+    "/sys/class/mmc_host/mmc*/mmc*:*/cid" \
+    "/sys/block/mmcblk*/device/cid")
+
 if [ -n "$CID_PATH" ]; then
-    CID_VAL=$(adb shell "cat '$CID_PATH' 2>/dev/null" 2>/dev/null | tr -d '\r')
+    CID_VAL=$(read_path_value "$CID_PATH")
     if [ -n "$CID_VAL" ]; then
         print_check "$SYM_OK" "CID (vendor/modelo memoria)" "${CID_VAL}"
     else
-        print_check "$SYM_WARN" "CID" "arquivo existe mas leitura vazia"
+        print_check "$SYM_WARN" "CID" "path existe mas leitura vazia"
         PARTIALS=$((PARTIALS+1))
     fi
 else
-    UFS_PNAME=$(adb shell "find /sys -name product_name -path '*string_descriptor*' 2>/dev/null | head -n1" 2>/dev/null | tr -d '\r')
-    if [ -n "$UFS_PNAME" ]; then
-        UFS_PNAME_VAL=$(adb shell "cat '$UFS_PNAME' 2>/dev/null" 2>/dev/null | tr -d '\r')
+    UFS_PNAME_PATH=$(probe_first_path \
+        "/sys/devices/platform/soc/*ufs*/string_descriptors/product_name" \
+        "/sys/bus/platform/devices/*ufs*/string_descriptors/product_name")
+    UFS_MFR_PATH=$(probe_first_path \
+        "/sys/devices/platform/soc/*ufs*/string_descriptors/manufacturer_name" \
+        "/sys/bus/platform/devices/*ufs*/string_descriptors/manufacturer_name")
+
+    if [ -n "$UFS_PNAME_PATH" ]; then
+        UFS_PNAME_VAL=$(read_path_value "$UFS_PNAME_PATH")
+        UFS_MFR_VAL=""
+        [ -n "$UFS_MFR_PATH" ] && UFS_MFR_VAL=$(read_path_value "$UFS_MFR_PATH")
         if [ -n "$UFS_PNAME_VAL" ]; then
-            print_check "$SYM_OK" "UFS product_name" "${UFS_PNAME_VAL}"
+            if [ -n "$UFS_MFR_VAL" ]; then
+                print_check "$SYM_OK" "UFS vendor/modelo" "${UFS_MFR_VAL} / ${UFS_PNAME_VAL}"
+            else
+                print_check "$SYM_OK" "UFS product_name" "${UFS_PNAME_VAL}"
+            fi
         else
-            print_check "$SYM_WARN" "UFS product_name" "arquivo existe mas leitura vazia"
+            print_check "$SYM_WARN" "UFS product_name" "path existe mas vazio"
             PARTIALS=$((PARTIALS+1))
         fi
     else
@@ -314,11 +456,7 @@ else
     print_check "$SYM_INF" "dmesg" "saida vazia/desconhecida"
 fi
 
-if [ "$BUILD_TYPE" = "userdebug" ] || [ "$BUILD_TYPE" = "eng" ]; then
-    print_check "$SYM_INF" "adb root" "build $BUILD_TYPE (provavelmente disponivel — NAO testado, alguns devices MTK quebram)"
-else
-    print_check "$SYM_WARN" "adb root" "build user — adb root nao disponivel"
-fi
+# adb root status ja foi reportado na secao PRIVILEGIOS no topo
 
 # ============================================================
 # VEREDICTO

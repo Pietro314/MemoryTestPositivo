@@ -347,6 +347,13 @@ if [ -n "$UFS_HEALTH_DIR" ] && [ -d "$UFS_HEALTH_DIR" ]; then
     LIFE_SOURCE="$UFS_HEALTH_DIR/life_time_estimation_a + life_time_estimation_b"
     PRE_EOL_SOURCE="$UFS_HEALTH_DIR/pre_eol_info"
 
+    # Fallback: TL10 (SPRD UFS) usa nome 'eol_info' (sem prefixo pre_)
+    if [ -z "$PRE_EOL" ] && [ -f "$UFS_HEALTH_DIR/eol_info" ]; then
+        PRE_EOL=$(cat "$UFS_HEALTH_DIR/eol_info" 2>/dev/null)
+        PRE_EOL_SOURCE="$UFS_HEALTH_DIR/eol_info"
+        log_debug "UFS PRE_EOL via fallback eol_info"
+    fi
+
     log_debug "UFS LIFE_A raw='${LIFE_A:-<vazio>}'"
     log_debug "UFS LIFE_B raw='${LIFE_B:-<vazio>}'"
     log_debug "UFS PRE_EOL raw='${PRE_EOL:-<vazio>}'"

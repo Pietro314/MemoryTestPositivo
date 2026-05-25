@@ -197,34 +197,50 @@ echo "memtester  : $MEMTESTER"
 echo "Script     : $SCRIPT_LOCAL"
 echo ""
 
-# Best-effort adb root (script funciona sem root, mas setenforce 0 e dmesg
-# precisam dele pra rodar 100%)
-info "2/7" "adb root (best-effort)"
+# Best-effort root escalation (script funciona sem root, mas setenforce 0 e
+# dmesg precisam dele pra rodar 100%). Tenta 'su 0' primeiro pois alguns
+# devices MTK travam com 'adb root'.
+info "2/7" "Escalar privilegios (best-effort)"
 CURRENT_UID=$(adb shell id -u 2>/dev/null | tr -d '\r')
 IS_ROOT=0
+ROOT_METHOD="none"
 if [ "$CURRENT_UID" = "0" ]; then
     echo "    adbd ja eh root."
     IS_ROOT=1
+    ROOT_METHOD="adbd"
 elif [ "$BUILD_TYPE" = "user" ]; then
-    echo "    Build user, 'adb root' nao suportado. Continuando sem root."
+    echo "    Build user, root nao suportado. Continuando sem root."
 else
-    adb root >/dev/null 2>&1 || true
-    sleep 3
-    if ! adb shell true >/dev/null 2>&1; then
-        adb kill-server >/dev/null 2>&1 || true
-        sleep 1
-        adb start-server >/dev/null 2>&1 || true
-    fi
-    for _ in $(seq 1 10); do
-        adb shell true >/dev/null 2>&1 && break
-        sleep 2
-    done
-    if adb shell true >/dev/null 2>&1; then
-        NEW_UID=$(adb shell id -u 2>/dev/null | tr -d '\r')
-        [ "$NEW_UID" = "0" ] && IS_ROOT=1
+    # Plano A: su 0 (mais seguro, nao trava adbd)
+    SU_UID=$(adb shell "su 0 id -u" 2>/dev/null | tr -d '\r')
+    if [ "$SU_UID" = "0" ]; then
+        IS_ROOT=1
+        ROOT_METHOD="su"
+        echo "    su 0 funciona — vamos usar (evita adb root que pode travar device)."
     else
-        echo "    [AVISO] device nao respondeu apos 'adb root'. Tente reconectar USB."
-        echo "    Continuando sem root — alguns passos vao reportar 'skip'."
+        # Plano B: adb root tradicional, com retry MTK+Windows
+        echo "    su indisponivel — tentando adb root tradicional."
+        adb root >/dev/null 2>&1 || true
+        sleep 3
+        if ! adb shell true >/dev/null 2>&1; then
+            adb kill-server >/dev/null 2>&1 || true
+            sleep 1
+            adb start-server >/dev/null 2>&1 || true
+        fi
+        for _ in $(seq 1 10); do
+            adb shell true >/dev/null 2>&1 && break
+            sleep 2
+        done
+        if adb shell true >/dev/null 2>&1; then
+            NEW_UID=$(adb shell id -u 2>/dev/null | tr -d '\r')
+            if [ "$NEW_UID" = "0" ]; then
+                IS_ROOT=1
+                ROOT_METHOD="adbd"
+            fi
+        else
+            echo "    [AVISO] device nao respondeu apos 'adb root'. Tente reconectar USB."
+            echo "    Continuando sem root — alguns passos vao reportar 'skip'."
+        fi
     fi
 fi
 
@@ -239,7 +255,11 @@ adb shell chmod 755 /data/local/tmp/memtest_work/full_memtest.sh
 
 info "5/7" "setenforce 0 (best-effort)"
 if [ "$IS_ROOT" = "1" ]; then
-    adb shell setenforce 0 2>/dev/null || echo "    setenforce 0 falhou (sepolicy estrita)."
+    if [ "$ROOT_METHOD" = "su" ]; then
+        adb shell "su 0 setenforce 0" 2>/dev/null || echo "    setenforce 0 (via su) falhou."
+    else
+        adb shell setenforce 0 2>/dev/null || echo "    setenforce 0 falhou (sepolicy estrita)."
+    fi
 else
     echo "    Pulado (sem root)."
 fi
