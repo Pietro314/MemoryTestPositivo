@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "device": "TL10",
+      "ramGb": 8,
+      "name": "TL10 (8GB)",
+      "manufacturer": "Positivo",
+      "modelCode": "H28S8D301DMR",
+      "expectedStorageGb": 128,
+      "storageClass": "UFS_2_1",
+      "minWriteMbps": 120,
+      "minReadMbps": 500,
+      "storageTestSizeMb": 1024,
+      "quickMemtest": {
+        "percent": 50,
+        "maxMb": 4096,
+        "minMb": 256,
+        "loops": 1,
+        "timeoutS": 900
+      },
+      "deepMemtest": {
+        "percent": 60,
+        "maxMb": 4096,
+        "minMb": 256,
+        "loops": 3,
+        "timeoutS": 3600
+      }
+    },
+    {
+      "device": "T3010D",
+      "ramGb": 4,
+      "name": "Vision Tab 10 (4GB)",
+      "manufacturer": "Positivo",
+      "expectedStorageGb": 64,
+      "storageClass": "EMMC_5_1",
+      "minWriteMbps": 50,
+      "minReadMbps": 150,
+      "storageTestSizeMb": 512,
+      "quickMemtest": {
+        "percent": 40,
+        "maxMb": 1024,
+        "minMb": 128,
+        "loops": 1,
+        "timeoutS": 600
+      },
+      "deepMemtest": {
+        "percent": 60,
+        "maxMb": 2048,
+        "minMb": 128,
+        "loops": 3,
+        "timeoutS": 3000
+      }
+    },
+    {
+      "device": "T2070D",
+      "ramGb": 4,
+      "name": "T2070D (4GB)",
+      "manufacturer": "Positivo",
+      "modelCode": "KMDH6001DA-B422",
+      "expectedStorageGb": 32,
+      "storageClass": "EMMC_5_1",
+      "minWriteMbps": 50,
+      "minReadMbps": 150,
+      "storageTestSizeMb": 512,
+      "quickMemtest": {
+        "percent": 40,
+        "maxMb": 512,
+        "minMb": 128,
+        "loops": 1,
+        "timeoutS": 600
+      },
+      "deepMemtest": {
+        "percent": 60,
+        "maxMb": 2048,
+        "minMb": 128,
+        "loops": 3,
+        "timeoutS": 3000
+      }
+    },
+    {
+      "device": "T2070D",
+      "ramGb": 8,
+      "name": "T2070D (8GB)",
+      "manufacturer": "Positivo",
+      "expectedStorageGb": 64,
+      "storageClass": "EMMC_5_1",
+      "minWriteMbps": 80,
+      "minReadMbps": 250,
+      "storageTestSizeMb": 1024,
+      "quickMemtest": {
+        "percent": 50,
+        "maxMb": 2048,
+        "minMb": 256,
+        "loops": 1,
+        "timeoutS": 900
+      },
+      "deepMemtest": {
+        "percent": 60,
+        "maxMb": 4096,
+        "minMb": 256,
+        "loops": 3,
+        "timeoutS": 3600
+      }
+    },
+    {
+      "device": "L400",
+      "ramGb": 1,
+      "name": "L400 (1GB)",
+      "manufacturer": "Positivo",
+      "expectedStorageGb": 4,
+      "storageClass": "EMMC_5_0",
+      "minWriteMbps": 30,
+      "minReadMbps": 80,
+      "storageTestSizeMb": 256,
+      "quickMemtest": {
+        "percent": 40,
+        "maxMb": 256,
+        "minMb": 128,
+        "loops": 1,
+        "timeoutS": 600
+      },
+      "deepMemtest": {
+        "percent": 60,
+        "maxMb": 512,
+        "minMb": 128,
+        "loops": 3,
+        "timeoutS": 1800
+      }
+    }
+  ]
+}

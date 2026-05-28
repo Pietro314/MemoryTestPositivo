@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<!--
+    sharedUserId="android.uid.system": faz o APK rodar com uid 1000 (system).
+    Necessario pra memtester ter mlock unlimited via CAP_SYS_RESOURCE.
+
+    Atencao: requer fresh install (factory reset ou flash de imagem nova).
+    Nao pode ser "upgrade" sobre uma versao anterior do APK que rodava
+    como app comum — Android proibe troca de uid e da INSTALL_FAILED_UID_CHANGED.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sharedUserId="android.uid.system">
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
@@ -56,6 +65,26 @@
             android:name=".ui.settings.SettingsActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize|stateHidden" />
+
+        <!--
+            AutoTestActivity: disparada por outro app (ex: app da fabrica) via:
+              Intent("com.factory.memorytest.action.AUTO_TEST")
+                  .setPackage("com.factory.memorytest")
+            Le memorytestconfig.json do disco, identifica device+ramGb e roda
+            factory + deep em sequencia.
+            Sem permission custom (decisao: qualquer app pode disparar).
+        -->
+        <activity
+            android:name=".ui.autotest.AutoTestActivity"
+            android:exported="true"
+            android:keepScreenOn="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|locale|fontScale|keyboardHidden">
+            <intent-filter>
+                <action android:name="com.factory.memorytest.action.AUTO_TEST" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <provider
             android:name="androidx.core.content.FileProvider"

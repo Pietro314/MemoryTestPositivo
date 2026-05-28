@@ -809,6 +809,13 @@ if [ -z "$MEMTESTER_BIN" ]; then
     fail "memtester não encontrado — embarque o binário na imagem em /system/bin/memtester ou /vendor/bin/memtester"
     log "  Pulando teste de RAM por falta do memtester."
 else
+    # Tenta elevar RLIMIT_MEMLOCK pra unlimited. Funciona se o processo
+    # tiver CAP_SYS_RESOURCE (uid system ou root). Caso contrario, o kernel
+    # rejeita silenciosamente e o memtester roda fake-fast com ~8MB.
+    log_debug "Pre-ulimit MEMLOCK limit: $(ulimit -l 2>/dev/null)"
+    ulimit -l unlimited 2>/dev/null || true
+    log_debug "Post-ulimit MEMLOCK limit: $(ulimit -l 2>/dev/null)"
+
     log_debug "Executando em background: $MEMTESTER_BIN ${MEMTEST_MB}M ${MEMTEST_LOOPS}"
     "$MEMTESTER_BIN" "${MEMTEST_MB}M" "$MEMTEST_LOOPS" > memtester.log 2>&1 &
     MEMTESTER_PID=$!

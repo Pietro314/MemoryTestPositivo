@@ -280,6 +280,12 @@ else
     echo 3 > /proc/sys/vm/drop_caches 2>/dev/null
     log_debug "Caches solicitados para limpeza, se permitido."
 
+    # Eleva RLIMIT_MEMLOCK pra evitar fake-fast (kernel ignora rlimit se
+    # processo tem CAP_SYS_RESOURCE — uid system tem por padrao).
+    log_debug "Pre-ulimit MEMLOCK limit: $(ulimit -l 2>/dev/null)"
+    ulimit -l unlimited 2>/dev/null || true
+    log_debug "Post-ulimit MEMLOCK limit: $(ulimit -l 2>/dev/null)"
+
     log_debug "Executando em background: $MEMTESTER_BIN ${MEMTEST_MB}M ${MEMTEST_LOOPS}"
     "$MEMTESTER_BIN" "${MEMTEST_MB}M" "$MEMTEST_LOOPS" > ram_deep_memtester.log 2>&1 &
     MEMTESTER_PID=$!

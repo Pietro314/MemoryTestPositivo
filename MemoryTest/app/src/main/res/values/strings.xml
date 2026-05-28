@@ -108,4 +108,17 @@
     <string name="error_required">Campo obrigatório</string>
     <string name="error_must_be_positive">Deve ser maior que zero</string>
     <string name="error_percent_range">Use um valor entre 1 e 100</string>
+
+    <!-- AutoTest -->
+    <string name="autotest_running">Teste Automático</string>
+    <string name="autotest_factory_label">Teste de fábrica</string>
+    <string name="autotest_deep_label">Stress de RAM (deep)</string>
+    <string name="autotest_status_pending">PENDENTE</string>
+    <string name="autotest_status_running">RUNNING</string>
+    <string name="autotest_status_pass">PASS</string>
+    <string name="autotest_status_fail">FAIL</string>
+    <string name="autotest_status_stopped">STOPPED</string>
+    <string name="autotest_status_not_run">NÃO EXECUTADO</string>
+    <string name="autotest_action_stop">Parar</string>
+    <string name="autotest_action_ok">OK</string>
 </resources>
