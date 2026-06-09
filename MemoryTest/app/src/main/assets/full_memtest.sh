@@ -570,7 +570,9 @@ if [ -n "$STOR_BLOCK" ] && [ -e "$STOR_BLOCK" ]; then
     STOR_BYTES=$(blockdev --getsize64 "$STOR_BLOCK" 2>/dev/null)
     log_debug "blockdev --getsize64 $STOR_BLOCK => '${STOR_BYTES:-<vazio>}'"
     if [ -n "$STOR_BYTES" ] && [ "$STOR_BYTES" -gt 0 ] 2>/dev/null; then
-        STOR_GB=$(( STOR_BYTES / 1024 / 1024 / 1024 ))
+        # awk pra evitar overflow no mksh 32-bit em chips >= 4GB.
+        STOR_GB=$(awk -v b="$STOR_BYTES" 'BEGIN { printf "%d", b/1024/1024/1024 }')
+        [ -z "$STOR_GB" ] && STOR_GB="N/A"
     fi
 else
     log_debug "STOR_BLOCK não encontrado ou não existe. Pulando blockdev."
@@ -581,8 +583,9 @@ if [ "$STOR_GB" = "N/A" ] || [ "$STOR_GB" = "0" ]; then
     DF_KB=$(df /data 2>/dev/null | awk 'NR==2{print $2}')
     log_debug "df /data total KB='${DF_KB:-<vazio>}'"
     if [ -n "$DF_KB" ] && [ "$DF_KB" -gt 0 ] 2>/dev/null; then
-        STOR_GB=$(( DF_KB / 1024 / 1024 ))
-        [ "$STOR_GB" -eq 0 ] && STOR_GB=1
+        # awk pra evitar overflow no mksh 32-bit (DF_KB pode passar de 2^31 em chips > 2TB).
+        STOR_GB=$(awk -v k="$DF_KB" 'BEGIN { printf "%d", k/1024/1024 }')
+        { [ -z "$STOR_GB" ] || [ "$STOR_GB" = "0" ]; } && STOR_GB=1
     fi
 fi
 

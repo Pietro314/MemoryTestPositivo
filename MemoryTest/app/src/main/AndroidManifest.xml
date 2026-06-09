@@ -1,14 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    sharedUserId="android.uid.system": faz o APK rodar com uid 1000 (system).
-    Necessario pra memtester ter mlock unlimited via CAP_SYS_RESOURCE.
-
-    Atencao: requer fresh install (factory reset ou flash de imagem nova).
-    Nao pode ser "upgrade" sobre uma versao anterior do APK que rodava
-    como app comum — Android proibe troca de uid e da INSTALL_FAILED_UID_CHANGED.
--->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    android:sharedUserId="android.uid.system">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />

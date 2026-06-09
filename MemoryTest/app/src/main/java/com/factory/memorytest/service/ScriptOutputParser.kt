@@ -49,6 +49,8 @@ class ScriptOutputParser(private val script: ScriptType) {
 
     private var currentSectionIndex = -1
 
+    private var finalResult: String? = null
+
     /** Mapeia o numero da secao [N] do script para o indice de step nesta tela. */
     private val sectionMap: Map<Int, Int> = when (script) {
         ScriptType.FACTORY -> mapOf(
@@ -165,7 +167,8 @@ class ScriptOutputParser(private val script: ScriptType) {
     }
 
     private fun finalizeOverall(result: String): State {
-        // marca tudo que esta RUNNING como PASS, e o step "final" como PASS/FAIL
+        // Persiste pra que finalize() / snapshot() subsequentes retornem o mesmo.
+        finalResult = result
         for (i in byOrder.indices) {
             val s = byOrder[i]
             if (s.status == StepStatus.RUNNING) {
@@ -182,12 +185,12 @@ class ScriptOutputParser(private val script: ScriptType) {
         return State(byOrder.toList(), overallResult = result)
     }
 
-    fun snapshot(): State = State(byOrder.toList(), overallResult = null)
+    fun snapshot(): State = State(byOrder.toList(), overallResult = finalResult)
 
     fun finalize(exitCode: Int?): State {
-        // Se nenhum DEVICE OK/FAILED apareceu, derive do exit code
-        val current = snapshot()
-        if (current.overallResult != null) return current
+        // Se o script ja emitiu DEVICE OK/FAILED ou RAM DIAGNOSTIC OK/FAILED,
+        // confia nesse resultado. Caso contrario, deriva do exit code.
+        if (finalResult != null) return snapshot()
         val result = when {
             exitCode == 0 -> "PASS"
             exitCode == null -> "FAIL"

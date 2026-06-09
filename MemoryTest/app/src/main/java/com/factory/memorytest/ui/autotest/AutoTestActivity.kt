@@ -126,7 +126,15 @@ class AutoTestActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        registerReceiver(stopReceiver, IntentFilter(ACTION_STOP_TEST))
+        // Android 13+ (API 33+) exige flag explicita. STOP_TEST e mandado por
+        // outros apps (factory) — RECEIVER_EXPORTED. ContextCompat cuida da
+        // compatibilidade com Android < 13.
+        ContextCompat.registerReceiver(
+            this,
+            stopReceiver,
+            IntentFilter(ACTION_STOP_TEST),
+            ContextCompat.RECEIVER_EXPORTED,
+        )
     }
 
     override fun onStop() {

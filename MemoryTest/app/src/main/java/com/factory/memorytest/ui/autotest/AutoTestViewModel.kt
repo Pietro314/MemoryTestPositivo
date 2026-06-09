@@ -6,16 +6,20 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.factory.memorytest.domain.DeviceProfile
 import com.factory.memorytest.domain.ScriptType
+import com.factory.memorytest.service.DaemonClient
+import com.factory.memorytest.service.DaemonEvent
 import com.factory.memorytest.service.MemoryTestConfigClient
 import com.factory.memorytest.service.MemoryTestConfigParser
 import com.factory.memorytest.service.RunnerEvent
 import com.factory.memorytest.service.ScriptOutputParser
 import com.factory.memorytest.service.ScriptRunner
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -155,7 +159,6 @@ class AutoTestViewModel(app: Application) : AndroidViewModel(app) {
     ): PhaseResult {
         val scriptType = if (phase == Phase.FACTORY) ScriptType.FACTORY else ScriptType.DEEP_RAM
         val parser = ScriptOutputParser(scriptType)
-        val runner = ScriptRunner(getApplication())
 
         // Mantem TODAS as linhas pra salvar em log de disco depois.
         // Tipico: factory ~200 linhas, deep ~500 linhas — sem pressao real de memoria.
@@ -170,9 +173,9 @@ class AutoTestViewModel(app: Application) : AndroidViewModel(app) {
         )
 
         try {
-            runner.runScript(scriptType, profile).collect { event ->
+            runnerFlow(scriptType, profile).collect { event ->
                 when (event) {
-                    is RunnerEvent.Line -> {
+                    is DaemonEvent.Line -> {
                         val state = parser.feed(event.text)
                         allOutput.add(event.text)
                         _stage.value = Stage.Running(
@@ -182,11 +185,14 @@ class AutoTestViewModel(app: Application) : AndroidViewModel(app) {
                             factoryDone = factoryDone,
                         )
                     }
-                    is RunnerEvent.Exit -> {
+                    is DaemonEvent.Exit -> {
                         exitCode = event.code
                     }
-                    is RunnerEvent.Error -> {
+                    is DaemonEvent.Error -> {
                         allOutput.add("[ERROR] ${event.message}")
+                    }
+                    DaemonEvent.Closed -> {
+                        // socket fechou sem EXIT — daemon caiu ou cancelou
                     }
                 }
             }
@@ -210,6 +216,30 @@ class AutoTestViewModel(app: Application) : AndroidViewModel(app) {
             parserState = finalState,
             output = allOutput.toList(),
         )
+    }
+
+    /**
+     * Escolhe o runner em runtime baseado na existencia do socket do daemon.
+     *
+     * TL10 (com daemon embarcado no AOSP) → DaemonClient via /dev/socket/memtest_daemon
+     * L400 (sem daemon, mas ScriptRunner faz mlock real via su bootstrap) → ScriptRunner local
+     *
+     * Eventos do ScriptRunner sao mapeados pra DaemonEvent pra manter um
+     * tratamento unificado no caller.
+     */
+    private fun runnerFlow(script: ScriptType, profile: DeviceProfile): Flow<DaemonEvent> {
+        val socket = File("/dev/socket/memtest_daemon")
+        return if (socket.exists()) {
+            DaemonClient().runScript(script, profile)
+        } else {
+            ScriptRunner(getApplication()).runScript(script, profile).map { event ->
+                when (event) {
+                    is RunnerEvent.Line -> DaemonEvent.Line(event.text)
+                    is RunnerEvent.Exit -> DaemonEvent.Exit(event.code)
+                    is RunnerEvent.Error -> DaemonEvent.Error(event.message)
+                }
+            }
+        }
     }
 
     private fun readTotalRamGb(): Int {
