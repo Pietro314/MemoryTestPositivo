@@ -13,8 +13,14 @@
 #   MEMTEST_LOOPS=5 bash run_deep.sh T2070.conf
 #
 # Variaveis aceitas (definidas pelo profile ou via env):
-#   MEMTEST_PERCENT, MEMTEST_MAX_MB, MEMTEST_LOOPS, MEMTEST_TIMEOUT_S,
-#   MIN_MEMTEST_MB, EXPECTED_RAM_GB
+#   Memtester deep:
+#     MEMTEST_PERCENT, MEMTEST_MAX_MB, MEMTEST_LOOPS, MEMTEST_TIMEOUT_S,
+#     MIN_MEMTEST_MB, EXPECTED_RAM_GB
+#   Memtester quick (gate antes do deep):
+#     QUICK_MEMTEST_PERCENT, QUICK_MEMTEST_MAX_MB, QUICK_MEMTEST_MIN_MB,
+#     QUICK_MEMTEST_LOOPS, QUICK_MEMTEST_TIMEOUT_S
+#   Storage test (dd 512MB + md5 integridade):
+#     MIN_WRITE_MBPS, MIN_READ_MBPS, STORAGE_TEST_SIZE_MB
 
 PROFILE_ARG="${1:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -243,7 +249,10 @@ fi
 
 ENV_PREFIX=""
 for var in MEMTEST_PERCENT MEMTEST_MAX_MB MEMTEST_LOOPS MEMTEST_TIMEOUT_S \
-           MIN_MEMTEST_MB EXPECTED_RAM_GB; do
+           MIN_MEMTEST_MB EXPECTED_RAM_GB \
+           QUICK_MEMTEST_PERCENT QUICK_MEMTEST_MAX_MB QUICK_MEMTEST_MIN_MB \
+           QUICK_MEMTEST_LOOPS QUICK_MEMTEST_TIMEOUT_S \
+           MIN_WRITE_MBPS MIN_READ_MBPS STORAGE_TEST_SIZE_MB; do
     eval "val=\${$var:-}"
     if [ -n "$val" ]; then
         ENV_PREFIX="$ENV_PREFIX $var='$val'"

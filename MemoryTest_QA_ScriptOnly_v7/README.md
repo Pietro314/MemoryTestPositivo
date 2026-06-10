@@ -24,13 +24,13 @@ Esse pacote suporta **duas estratégias de teste**:
 MemoryTest_QA_ScriptOnly_v4/
 ├── README.md                  ← este arquivo
 ├── pre_check.sh               ← avalia capacidades do device (rodar 1x por SKU)
-├── run_full.sh                ← teste de fábrica rápido
-├── run_deep.sh                ← diagnóstico profundo de RAM (uso raro)
-├── memtester                  ← binário arm64
-├── memtester-arm32            ← binário arm32 (do build L400)
+├── run_full.sh                ← teste de fábrica INFO-ONLY (~30s, sem stress)
+├── run_deep.sh                ← stress completo: storage + memtester quick + deep
+├── memtester                  ← binário arm64 (usado só pelo run_deep.sh)
+├── memtester-arm32            ← binário arm32 (usado só pelo run_deep.sh)
 ├── scripts/
-│   ├── full_memtest.sh        ← roda dentro do device via adb shell
-│   └── ram_deep.sh            ← idem
+│   ├── full_memtest.sh        ← roda no device (factory info-only)
+│   └── ram_deep.sh            ← roda no device (storage + quick + deep)
 ├── profiles/                  ← thresholds por modelo (carregado automático)
 │   ├── README.md              ← como criar profile pra device novo
 │   ├── default.conf           ← fallback genérico

@@ -31,17 +31,18 @@ class ScriptOutputParser(private val script: ScriptType) {
             Step("device_id",     "Identificação", orderIndex = 0),
             Step("storage_info",  "Saúde do Storage", orderIndex = 1),
             Step("ram_info",      "RAM detectada", orderIndex = 2),
-            Step("storage_test",  "Velocidade de Storage", orderIndex = 3),
-            Step("ram_test",      "Memtester (rápido)", orderIndex = 4),
-            Step("dmesg",         "Análise do dmesg", orderIndex = 5),
-            Step("final",         "Resultado", orderIndex = 6),
+            Step("dmesg",         "Análise do dmesg", orderIndex = 3),
+            Step("final",         "Resultado", orderIndex = 4),
         )
         ScriptType.DEEP_RAM -> listOf(
-            Step("device_id",     "Identificação", orderIndex = 0),
-            Step("ram_info",      "RAM detectada", orderIndex = 1),
-            Step("locate_mt",     "Localizar memtester", orderIndex = 2),
-            Step("ram_test",      "Memtester profundo", orderIndex = 3),
-            Step("final",         "Resultado", orderIndex = 4),
+            Step("device_id",      "Identificação", orderIndex = 0),
+            Step("ram_info",       "RAM detectada", orderIndex = 1),
+            Step("locate_mt",      "Localizar memtester", orderIndex = 2),
+            Step("storage_test",   "Velocidade de Storage", orderIndex = 3),
+            Step("ram_test_quick", "Memtester rápido (gate)", orderIndex = 4),
+            Step("ram_test",       "Memtester profundo", orderIndex = 5),
+            Step("dmesg",          "Análise do dmesg", orderIndex = 6),
+            Step("final",          "Resultado", orderIndex = 7),
         )
     }
 
@@ -57,17 +58,18 @@ class ScriptOutputParser(private val script: ScriptType) {
             1 to 0, // device id
             2 to 1, // storage info
             3 to 2, // ram info
-            4 to 3, // storage test
-            5 to 4, // ram test
-            6 to 5, // dmesg
-            7 to 6, // final
+            4 to 3, // dmesg
+            5 to 4, // final
         )
         ScriptType.DEEP_RAM -> mapOf(
             1 to 0, // device id
             2 to 1, // ram info
             3 to 2, // locate memtester
-            4 to 3, // deep ram test
-            5 to 4, // final (heuristico — script nao tem secao 5 fixa, tratado por DEVICE OK/FAILED)
+            4 to 3, // storage test (dd + md5)
+            5 to 4, // memtester quick (gate)
+            6 to 5, // memtester deep
+            7 to 6, // dmesg
+            8 to 7, // final
         )
     }
 
@@ -77,17 +79,33 @@ class ScriptOutputParser(private val script: ScriptType) {
     private val resultPassRegex = Regex("""(?i)(DEVICE OK|RAM DIAGNOSTIC OK)""")
     private val resultFailRegex = Regex("""(?i)(DEVICE FAILED|RAM DIAGNOSTIC FAILED)""")
 
+    // Os hints abaixo usam numeros de SECAO do script (nao indices de step).
+    // Como as seções têm significados diferentes entre FACTORY e DEEP_RAM, os
+    // hints sao escritos pra so disparar quando a linha exata aparece, e a
+    // seção apontada é a correta no script onde a linha é emitida:
+    //   - Factory: [2]storage_info, [3]ram_info, [4]dmesg
+    //   - Deep:    [2]ram_info, [4]storage_test, [5]quick, [6]deep, [7]dmesg
+    // Linhas exclusivas de um script (ex: "Total RAM" só no factory, "MemTotal"
+    // só no deep) sao seguras de mapear pra qualquer seção sem conflito.
     private val summaryHints: List<Pair<Regex, (MatchResult) -> Pair<Int, String>>> = listOf(
-        Regex("""Type\s*:\s*(\S+)""") to { m -> 1 to "Tipo: ${m.groupValues[1]}" },
-        Regex("""Vendor\s*:\s*(.+)""") to { m -> 1 to (m.groupValues[1].trim()) },
-        Regex("""Pre-EOL\s*:\s*(.+)""") to { m -> 1 to "Pre-EOL: ${m.groupValues[1].trim()}" },
-        Regex("""Total RAM\s*:\s*(\d+)\s*MB""") to { m -> 2 to "${m.groupValues[1]} MB total" },
-        Regex("""MemTotal\s*:\s*(\d+)\s*MB""") to { m -> 1 to "${m.groupValues[1]} MB total" },
-        Regex("""Write speed\s*:\s*~?(\d+)\s*MB/s""") to { m -> 3 to "W: ${m.groupValues[1]} MB/s" },
-        Regex("""Read speed\s*:\s*~?(\d+)\s*MB/s""") to { m -> 3 to "R: ${m.groupValues[1]} MB/s" },
-        Regex("""memtester\s*:\s*OK\s*\(exit\s+\d+,\s*duração\s+(\d+)s""") to { m -> 4 to "OK em ${m.groupValues[1]}s" },
-        Regex("""dmesg\s*:\s*sem erros""") to { _ -> 5 to "Sem erros" },
-        Regex("""dmesg\s*:\s*não disponível""") to { _ -> 5 to "Sem permissão" },
+        // Storage info (factory section [2])
+        Regex("""Type\s*:\s*(\S+)""") to { m -> 2 to "Tipo: ${m.groupValues[1]}" },
+        Regex("""Vendor\s*:\s*(.+)""") to { m -> 2 to (m.groupValues[1].trim()) },
+        Regex("""Pre-EOL\s*:\s*(.+)""") to { m -> 2 to "Pre-EOL: ${m.groupValues[1].trim()}" },
+        // RAM info — factory usa "Total RAM", deep usa "MemTotal"
+        Regex("""Total RAM\s*:\s*(\d+)\s*MB""") to { m -> 3 to "${m.groupValues[1]} MB total" },
+        Regex("""MemTotal\s*:\s*(\d+)\s*MB""") to { m -> 2 to "${m.groupValues[1]} MB total" },
+        // Storage test (deep section [4])
+        Regex("""Write speed\s*:\s*~?(\d+)\s*MB/s""") to { m -> 4 to "W: ${m.groupValues[1]} MB/s" },
+        Regex("""Read speed\s*:\s*~?(\d+)\s*MB/s""") to { m -> 4 to "R: ${m.groupValues[1]} MB/s" },
+        Regex("""Integridade\s*:\s*OK""") to { _ -> 4 to "Integridade OK" },
+        // Memtester quick (deep section [5])
+        Regex("""memtester quick\s*:\s*OK\s*\(exit\s+\d+,\s*duração\s+(\d+)s""") to { m -> 5 to "OK em ${m.groupValues[1]}s" },
+        // Memtester deep (deep section [6]) — lookahead negativo pra nao capturar "memtester quick"
+        Regex("""memtester(?!\s+quick)\s*:\s*OK\s*\(exit\s+\d+,\s*duração\s+(\d+)s""") to { m -> 6 to "OK em ${m.groupValues[1]}s" },
+        // dmesg — labels diferentes entre factory ("sem erros") e deep ("sem eventos")
+        Regex("""dmesg\s*:\s*sem erros""") to { _ -> 4 to "Sem erros" },        // factory [4]
+        Regex("""dmesg\s*:\s*sem eventos""") to { _ -> 7 to "Sem eventos" },    // deep [7]
     )
 
     fun feed(line: String): State {

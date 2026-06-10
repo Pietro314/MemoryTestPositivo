@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# run_full.sh — Factory memory test rapido (script-only, sem APK).
+# run_full.sh — Factory test info-only (script-only, sem APK).
+#
+# Coleta info do device + health de storage (life_time, pre_eol) + dmesg.
+# NAO faz stress de RAM nem I/O de storage — esses estao em run_deep.sh.
 #
 # Uso:
 #   bash run_full.sh                       # menu interativo de profiles
@@ -7,19 +10,17 @@
 #   bash run_full.sh T2070                 # idem, sem .conf
 #   bash run_full.sh /path/to/x.conf       # path absoluto
 #
-# Sobrescrever thresholds individuais via env var (mesmo passando profile):
-#   MIN_WRITE_MBPS=80 bash run_full.sh T2070.conf
+# Sobrescrever threshold via env var (mesmo passando profile):
+#   EXPECTED_RAM_GB=8 bash run_full.sh T2070.conf
 #
 # Variaveis aceitas (definidas pelo profile ou via env):
-#   MIN_WRITE_MBPS, MIN_READ_MBPS, EXPECTED_RAM_GB, STORAGE_TEST_SIZE_MB,
-#   QUICK_MEMTEST_PERCENT, QUICK_MEMTEST_MAX_MB, QUICK_MEMTEST_MIN_MB,
-#   QUICK_MEMTEST_LOOPS, QUICK_MEMTEST_TIMEOUT_S
+#   EXPECTED_RAM_GB — valor minimo de RAM esperado (default 4)
 #
 # Pre-requisitos:
 #   - adb no PATH
 #   - device userdebug conectado e autorizado (adb devices mostra)
-#   - memtester ou memtester-<arch> nesta pasta
 #   - scripts/full_memtest.sh nesta pasta
+#   (memtester nao eh necessario pra run_full — so pra run_deep)
 
 PROFILE_ARG="${1:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -163,29 +164,6 @@ if [ -n "$PROFILE_USED" ]; then
     . "$PROFILE_USED"
 fi
 
-# Resolve memtester binario
-if [ -f "$SCRIPT_DIR/memtester-${ARCH}" ]; then
-    MEMTESTER="$SCRIPT_DIR/memtester-${ARCH}"
-elif [ -f "$SCRIPT_DIR/memtester" ]; then
-    MEMTESTER="$SCRIPT_DIR/memtester"
-else
-    err "memtester nao encontrado nesta pasta (esperado memtester-${ARCH} ou memtester)"
-fi
-
-# Confere arch do binario vs device (evita 'exec format error' silencioso)
-if command -v file >/dev/null 2>&1; then
-    BIN_INFO=$(file -b "$MEMTESTER" 2>/dev/null)
-    case "$BIN_INFO" in
-        *aarch64*) BIN_ARCH="arm64" ;;
-        *ARM*)     BIN_ARCH="arm32" ;;
-        *x86-64*)  BIN_ARCH="x86_64" ;;
-        *)         BIN_ARCH="" ;;
-    esac
-    if [ -n "$BIN_ARCH" ] && [ "$BIN_ARCH" != "$ARCH" ]; then
-        err "memtester eh $BIN_ARCH mas device eh $ARCH ($ABI). Coloque memtester-${ARCH} na pasta."
-    fi
-fi
-
 SCRIPT_LOCAL="$SCRIPT_DIR/scripts/full_memtest.sh"
 [ -f "$SCRIPT_LOCAL" ] || err "scripts/full_memtest.sh nao encontrado."
 
@@ -193,7 +171,7 @@ echo ""
 echo "Device     : ${MODEL:-N/A}"
 echo "Build type : ${BUILD_TYPE:-N/A}"
 echo "Arquitetura: $ABI ($ARCH)"
-echo "memtester  : $MEMTESTER"
+echo "Modo       : factory info-only (sem memtester, sem stress)"
 echo "Script     : $SCRIPT_LOCAL"
 echo ""
 
@@ -244,10 +222,8 @@ else
     fi
 fi
 
-info "3/7" "Push memtester para /data/local/tmp/"
+info "3/7" "Criar workdir no device"
 adb shell mkdir -p /data/local/tmp/memtest_work || err "Falha ao criar /data/local/tmp/memtest_work no device."
-adb push "$(to_win_path "$MEMTESTER")" /data/local/tmp/memtester >/dev/null || err "Falha no push do memtester."
-adb shell chmod 755 /data/local/tmp/memtester
 
 info "4/7" "Push script para /data/local/tmp/memtest_work/"
 adb push "$(to_win_path "$SCRIPT_LOCAL")" /data/local/tmp/memtest_work/full_memtest.sh >/dev/null || err "Falha no push do script."
@@ -264,11 +240,10 @@ else
     echo "    Pulado (sem root)."
 fi
 
-# Monta prefix de env vars pra repassar ao script no device
+# Monta prefix de env vars pra repassar ao script no device.
+# Factory info-only consome apenas EXPECTED_RAM_GB.
 ENV_PREFIX=""
-for var in MIN_WRITE_MBPS MIN_READ_MBPS EXPECTED_RAM_GB STORAGE_TEST_SIZE_MB \
-           QUICK_MEMTEST_PERCENT QUICK_MEMTEST_MAX_MB QUICK_MEMTEST_MIN_MB \
-           QUICK_MEMTEST_LOOPS QUICK_MEMTEST_TIMEOUT_S; do
+for var in EXPECTED_RAM_GB; do
     eval "val=\${$var:-}"
     if [ -n "$val" ]; then
         ENV_PREFIX="$ENV_PREFIX $var='$val'"

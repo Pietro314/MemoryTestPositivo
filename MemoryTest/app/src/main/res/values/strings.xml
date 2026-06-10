@@ -7,8 +7,8 @@
     <string name="dashboard_header">Escolha o tipo de teste</string>
     <string name="dashboard_option_default_title">Teste Default</string>
     <string name="dashboard_option_default_subtitle">Baixa a configuração padrão do servidor local e roda o teste automaticamente.</string>
-    <string name="dashboard_option_import_title">Teste Import Dados</string>
-    <string name="dashboard_option_import_subtitle">Importa o JSON específico deste device pela rede Wi-Fi local antes de rodar o teste.</string>
+    <string name="dashboard_option_import_title">Teste Automático</string>
+    <string name="dashboard_option_import_subtitle">Roda o mesmo fluxo da fábrica (factory + deep) lendo memorytestconfig.json do device.</string>
     <string name="dashboard_option_register_title">Cadastrar device</string>
     <string name="dashboard_option_register_subtitle">Cadastra manualmente um novo device e roda o teste com os parâmetros informados.</string>
     <string name="dashboard_default_loading">Baixando configuração do servidor…</string>

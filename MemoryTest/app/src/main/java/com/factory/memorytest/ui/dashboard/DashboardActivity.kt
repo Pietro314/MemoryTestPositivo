@@ -12,6 +12,7 @@ import com.factory.memorytest.domain.DefaultDeviceProfile
 import com.factory.memorytest.domain.DeviceProfile
 import com.factory.memorytest.service.DeviceProfileJsonClient
 import com.factory.memorytest.service.ServerConfig
+import com.factory.memorytest.ui.autotest.AutoTestActivity
 import com.factory.memorytest.ui.devicedetail.DeviceDetailActivity
 import com.factory.memorytest.ui.devicelist.DeviceListActivity
 import com.factory.memorytest.ui.history.HistoryActivity
@@ -32,7 +33,7 @@ class DashboardActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         binding.cardDefaultTest.setOnClickListener { runDefaultTest() }
-        binding.cardImportTest.setOnClickListener { runImportTest() }
+        binding.cardImportTest.setOnClickListener { runAutoTest() }
         binding.cardRegisterDevice.setOnClickListener {
             startActivity(Intent(this, DeviceListActivity::class.java))
         }
@@ -109,11 +110,27 @@ class DashboardActivity : AppCompatActivity() {
     }
 
     /**
+     * Dispara o mesmo fluxo do AutoTestActivity (usado pela intent
+     * com.factory.memorytest.action.AUTO_TEST do app da fabrica) direto
+     * pelo botao da UI. Le memorytestconfig.json do disco e roda
+     * factory + deep em sequencia.
+     */
+    private fun runAutoTest() {
+        startActivity(Intent(this, AutoTestActivity::class.java))
+    }
+
+    /**
+     * DEAD CODE — mantido pra eventual reversao do comportamento do botao
+     * "Importar Dados" (baixar <Build.DEVICE>.json do servidor local em vez
+     * de rodar o teste automatico). Pra reativar: trocar runAutoTest() por
+     * runImportTest() no setOnClickListener acima.
+     *
      * Identifica o device atual via Build.DEVICE e tenta baixar o JSON
      * específico (`<Build.DEVICE>.json`). Em sucesso, persiste o perfil no
      * Room (upsert por marker name+modelCode) e abre DeviceDetailActivity.
      * Em falha, mostra aviso e cai no fluxo do "Teste Default".
      */
+    @Suppress("unused")
     private fun runImportTest() {
         val deviceId = Build.DEVICE.orEmpty().ifBlank { "desconhecido" }
 
@@ -141,6 +158,7 @@ class DashboardActivity : AppCompatActivity() {
         }
     }
 
+    @Suppress("unused")
     private suspend fun resolveImportedProfile(deviceId: String): DeviceProfile? {
         val result = profileClient.fetchForDevice(deviceId, DefaultDeviceProfile.build())
 

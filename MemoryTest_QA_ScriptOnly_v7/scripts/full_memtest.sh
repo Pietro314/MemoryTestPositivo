@@ -46,9 +46,14 @@ else
 fi
 
 # ==============================================================
-#  FACTORY MEMORY VALIDATION SCRIPT - QUICK RAM + VERBOSE LOG VERSION
-#  Objetivo: detectar memorias com defeito antes de ir a campo
+#  FACTORY MEMORY VALIDATION SCRIPT - INFO-ONLY VERSION
+#  Objetivo: coletar dados de identificacao do device + health de
+#  storage (life_time, pre_eol) + info basica de RAM + dmesg.
 #  Alvos: UFS / MMC/eMMC (storage) + RAM (LPDDR)
+#
+#  Stress real (memtester) e validacao de I/O (dd) sao feitos pelo
+#  teste deep (ram_deep.sh), em fase separada. Este script NAO faz
+#  stress nem escrita em disco — apenas leitura de sysfs/proc/getprop.
 #
 #  Esta versão gera log detalhado em:
 #  $WORKDIR/memtest_full_YYYYMMDD_HHMMSS.log
@@ -59,7 +64,6 @@ fi
 #  - Mantém compatibilidade com vendors que expõem life_time_type_a/b
 #  - Fallbacks adicionais para pre_eol_info, CID, modelo e vendor
 #  - Logs detalhados de caminhos encontrados, valores lidos, decisões e resultados
-#  - Teste de RAM rápido com timeout; stress paralelo infinito removido
 # ==============================================================
 
 WORKDIR="/data/local/tmp/memtest_work"
@@ -69,18 +73,9 @@ START_TIME=$(date +%s)
 RUN_TS=$(date +%Y%m%d_%H%M%S)
 
 # ---------- Thresholds configuráveis por SKU ----------
-# Valores lidos do ambiente (definidos pelo memtest_daemon a partir do
-# perfil do device cadastrado no APK). Caso nao venham, usa defaults.
-MIN_WRITE_MBPS="${MIN_WRITE_MBPS:-50}"
-MIN_READ_MBPS="${MIN_READ_MBPS:-100}"
+# Valores lidos do ambiente (definidos pelo run_full.sh a partir do
+# profile selecionado). Caso nao venham, usa defaults.
 EXPECTED_RAM_GB="${EXPECTED_RAM_GB:-4}"
-STORAGE_TEST_SIZE_MB="${STORAGE_TEST_SIZE_MB:-512}"
-# Quick RAM test parameters
-QUICK_MEMTEST_PERCENT="${QUICK_MEMTEST_PERCENT:-40}"
-QUICK_MEMTEST_MAX_MB="${QUICK_MEMTEST_MAX_MB:-512}"
-QUICK_MEMTEST_MIN_MB="${QUICK_MEMTEST_MIN_MB:-128}"
-QUICK_MEMTEST_LOOPS="${QUICK_MEMTEST_LOOPS:-1}"
-QUICK_MEMTEST_TIMEOUT_S="${QUICK_MEMTEST_TIMEOUT_S:-600}"
 # ------------------------------------------------------
 
 mkdir -p "$WORKDIR"
@@ -164,12 +159,7 @@ cleanup() {
     log_blank
     log "[CLEANUP] Removendo arquivos temporários..."
     log_debug "WORKDIR=$WORKDIR"
-    rm -f testfile hash_before.txt hash_after.txt write_speed.txt read_speed.txt dmesg.txt memtester.log result.txt.tmp
-    if [ -n "$STRESS_PGID" ]; then
-        log_debug "Tentando encerrar STRESS_PGID=$STRESS_PGID"
-        kill -- -"$STRESS_PGID" 2>/dev/null
-        kill "$STRESS_PGID" 2>/dev/null
-    fi
+    rm -f dmesg.txt result.txt.tmp
     log_debug "Log preservado em: $LOGFILE"
 }
 trap cleanup EXIT INT TERM
@@ -252,7 +242,8 @@ log "  FACTORY MEMORY TEST - $(date)"
 log "============================================="
 log "  Log file    : $LOGFILE"
 log "  Workdir     : $WORKDIR"
-log "  Thresholds  : MIN_WRITE=${MIN_WRITE_MBPS}MB/s, MIN_READ=${MIN_READ_MBPS}MB/s, EXPECTED_RAM=${EXPECTED_RAM_GB}GB, STORAGE_TEST=${STORAGE_TEST_SIZE_MB}MB"
+log "  Thresholds  : EXPECTED_RAM=${EXPECTED_RAM_GB}GB"
+log "  Modo        : info-only (sem stress de RAM ou I/O — deep faz o stress)"
 
 # =============================================
 # 1. IDENTIFICAÇÃO DO DISPOSITIVO
@@ -570,7 +561,9 @@ if [ -n "$STOR_BLOCK" ] && [ -e "$STOR_BLOCK" ]; then
     STOR_BYTES=$(blockdev --getsize64 "$STOR_BLOCK" 2>/dev/null)
     log_debug "blockdev --getsize64 $STOR_BLOCK => '${STOR_BYTES:-<vazio>}'"
     if [ -n "$STOR_BYTES" ] && [ "$STOR_BYTES" -gt 0 ] 2>/dev/null; then
-        STOR_GB=$(( STOR_BYTES / 1024 / 1024 / 1024 ))
+        # awk pra evitar overflow no mksh 32-bit em chips >= 4GB.
+        STOR_GB=$(awk -v b="$STOR_BYTES" 'BEGIN { printf "%d", b/1024/1024/1024 }')
+        [ -z "$STOR_GB" ] && STOR_GB="N/A"
     fi
 else
     log_debug "STOR_BLOCK não encontrado ou não existe. Pulando blockdev."
@@ -581,8 +574,9 @@ if [ "$STOR_GB" = "N/A" ] || [ "$STOR_GB" = "0" ]; then
     DF_KB=$(df /data 2>/dev/null | awk 'NR==2{print $2}')
     log_debug "df /data total KB='${DF_KB:-<vazio>}'"
     if [ -n "$DF_KB" ] && [ "$DF_KB" -gt 0 ] 2>/dev/null; then
-        STOR_GB=$(( DF_KB / 1024 / 1024 ))
-        [ "$STOR_GB" -eq 0 ] && STOR_GB=1
+        # awk pra evitar overflow no mksh 32-bit (DF_KB pode passar de 2^31 em chips > 2TB).
+        STOR_GB=$(awk -v k="$DF_KB" 'BEGIN { printf "%d", k/1024/1024 }')
+        { [ -z "$STOR_GB" ] || [ "$STOR_GB" = "0" ]; } && STOR_GB=1
     fi
 fi
 
@@ -659,213 +653,11 @@ else
     log_debug "RAM OK para o threshold configurado."
 fi
 
-# =============================================
-# 4. TESTE DE STORAGE
-# =============================================
-log_section "[4] Storage test (${STORAGE_TEST_SIZE_MB}MB)"
-
-FREE_KB=$(df /data 2>/dev/null | awk 'NR==2{print $4}')
-[ -z "$FREE_KB" ] && FREE_KB=0
-FREE_MB=$(( FREE_KB / 1024 ))
-NEEDED_MB=$(( STORAGE_TEST_SIZE_MB + 50 ))
-
-WRITE_MBPS="N/A"
-READ_MBPS="N/A"
-WRITE_MS="N/A"
-READ_MS="N/A"
-DD_WRITE_EXIT="N/A"
-DD_READ_EXIT="N/A"
-
-log_debug "Espaço livre /data: FREE_KB=$FREE_KB, FREE_MB=$FREE_MB"
-log_debug "Espaço necessário: NEEDED_MB=$NEEDED_MB"
-
-if [ "$FREE_MB" -lt "$NEEDED_MB" ] 2>/dev/null; then
-    fail "Espaço livre insuficiente em /data: ${FREE_MB}MB disponível, precisa de ${NEEDED_MB}MB"
-else
-    COUNT=$(( STORAGE_TEST_SIZE_MB / 4 ))
-    [ "$COUNT" -lt 1 ] && COUNT=1
-
-    log "  Escrevendo ${STORAGE_TEST_SIZE_MB}MB com dados aleatórios..."
-    log_debug "Comando: dd if=/dev/urandom of=testfile bs=4M count=$COUNT conv=fsync"
-    T1=$(date +%s%3N 2>/dev/null)
-    if [ -z "$T1" ]; then T1=$(( $(date +%s) * 1000 )); fi
-    log_debug "T1=$T1"
-
-    dd if=/dev/urandom of=testfile bs=4M count="$COUNT" conv=fsync 2>write_speed.txt
-    DD_WRITE_EXIT=$?
-    log_debug "DD_WRITE_EXIT=$DD_WRITE_EXIT"
-    log_file_tail "dd write output" "write_speed.txt" 20
-
-    T2=$(date +%s%3N 2>/dev/null)
-    if [ -z "$T2" ]; then T2=$(( $(date +%s) * 1000 )); fi
-    log_debug "T2=$T2"
-
-    WRITE_MS=$(( T2 - T1 ))
-    [ "$WRITE_MS" -le 0 ] 2>/dev/null && WRITE_MS=1
-    WRITE_MBPS=$(( STORAGE_TEST_SIZE_MB * 1000 / WRITE_MS ))
-    log_debug "WRITE_MS=$WRITE_MS, WRITE_MBPS=$WRITE_MBPS"
-
-    if [ "$DD_WRITE_EXIT" -ne 0 ]; then
-        fail "Erro ao escrever arquivo de teste no storage"
-    fi
-
-    md5sum testfile > hash_before.txt 2>/dev/null
-    HASH_BEFORE=$(cat hash_before.txt 2>/dev/null)
-    log_debug "HASH_BEFORE='${HASH_BEFORE:-<vazio>}'"
-
-    log_debug "Executando sync"
-    sync
-    log_debug "Tentando limpar page cache: echo 3 > /proc/sys/vm/drop_caches"
-    echo 3 > /proc/sys/vm/drop_caches 2>/dev/null
-    DROP_EXIT=$?
-    log_debug "drop_caches exit=$DROP_EXIT"
-
-    log "  Lendo ${STORAGE_TEST_SIZE_MB}MB de volta..."
-    log_debug "Comando: dd if=testfile of=/dev/null bs=4M"
-    T3=$(date +%s%3N 2>/dev/null)
-    if [ -z "$T3" ]; then T3=$(( $(date +%s) * 1000 )); fi
-    log_debug "T3=$T3"
-
-    dd if=testfile of=/dev/null bs=4M 2>read_speed.txt
-    DD_READ_EXIT=$?
-    log_debug "DD_READ_EXIT=$DD_READ_EXIT"
-    log_file_tail "dd read output" "read_speed.txt" 20
-
-    T4=$(date +%s%3N 2>/dev/null)
-    if [ -z "$T4" ]; then T4=$(( $(date +%s) * 1000 )); fi
-    log_debug "T4=$T4"
-
-    READ_MS=$(( T4 - T3 ))
-    [ "$READ_MS" -le 0 ] 2>/dev/null && READ_MS=1
-    READ_MBPS=$(( STORAGE_TEST_SIZE_MB * 1000 / READ_MS ))
-    log_debug "READ_MS=$READ_MS, READ_MBPS=$READ_MBPS"
-
-    if [ "$DD_READ_EXIT" -ne 0 ]; then
-        fail "Erro ao ler arquivo de teste do storage"
-    fi
-
-    log "  Write speed : ~${WRITE_MBPS} MB/s (mín: ${MIN_WRITE_MBPS} MB/s)"
-    log "  Read speed  : ~${READ_MBPS} MB/s (mín: ${MIN_READ_MBPS} MB/s)"
-
-    if [ "$WRITE_MBPS" -lt "$MIN_WRITE_MBPS" ] 2>/dev/null; then
-        fail "Velocidade de escrita abaixo do mínimo: ${WRITE_MBPS} MB/s (esperado >= ${MIN_WRITE_MBPS} MB/s)"
-    else
-        log_debug "Velocidade de escrita OK."
-    fi
-    if [ "$READ_MBPS" -lt "$MIN_READ_MBPS" ] 2>/dev/null; then
-        fail "Velocidade de leitura abaixo do mínimo: ${READ_MBPS} MB/s (esperado >= ${MIN_READ_MBPS} MB/s)"
-    else
-        log_debug "Velocidade de leitura OK."
-    fi
-
-    md5sum testfile > hash_after.txt 2>/dev/null
-    HASH_AFTER=$(cat hash_after.txt 2>/dev/null)
-    log_debug "HASH_AFTER='${HASH_AFTER:-<vazio>}'"
-    log_debug "Comparando hash_before.txt e hash_after.txt"
-
-    if ! diff hash_before.txt hash_after.txt > /dev/null 2>&1; then
-        fail "Corrupção de dados detectada no storage (hash divergiu)"
-    else
-        log "  Integridade : OK (hash match)"
-    fi
-fi
 
 # =============================================
-# 5. TESTE DE RAM RÁPIDO
+# 4. ANÁLISE DO DMESG
 # =============================================
-log_section "[5] RAM quick validation + memtester"
-
-# Teste rápido de fábrica: controlado, sem stress paralelo infinito.
-# Objetivo: detectar falhas evidentes sem travar a linha de produção.
-MEMTEST_PERCENT="$QUICK_MEMTEST_PERCENT"
-MEMTEST_MAX_MB="$QUICK_MEMTEST_MAX_MB"
-MEMTEST_LOOPS="$QUICK_MEMTEST_LOOPS"
-MEMTEST_TIMEOUT_S="$QUICK_MEMTEST_TIMEOUT_S"
-
-MEMTEST_MB=$(( MEM_AVAIL_MB * MEMTEST_PERCENT / 100 ))
-[ "$MEMTEST_MB" -gt "$MEMTEST_MAX_MB" ] && MEMTEST_MB="$MEMTEST_MAX_MB"
-[ "$MEMTEST_MB" -lt "$QUICK_MEMTEST_MIN_MB" ] && MEMTEST_MB="$QUICK_MEMTEST_MIN_MB"
-
-log "  Modo RAM    : quick/factory"
-log "  MemAvailable: ${MEM_AVAIL_MB}MB"
-log "  Testando RAM: ${MEMTEST_MB}MB (${MEMTEST_PERCENT}% da disponível, máx ${MEMTEST_MAX_MB}MB)"
-log "  Loops       : ${MEMTEST_LOOPS}"
-log "  Timeout     : ${MEMTEST_TIMEOUT_S}s"
-log_debug "Motivo da mudança: removido stress paralelo infinito com /dev/urandom para evitar execução por horas."
-
-MEMTESTER_BIN=""
-log_debug "Procurando memtester nos caminhos conhecidos."
-for candidate in /system/bin/memtester /system/xbin/memtester /vendor/bin/memtester /data/local/tmp/memtester "$WORKDIR/memtester"; do
-    log_debug "Testando memtester candidate=$candidate"
-    if [ -x "$candidate" ]; then
-        MEMTESTER_BIN="$candidate"
-        log_debug "memtester encontrado: $MEMTESTER_BIN"
-        break
-    fi
-done
-
-if [ -z "$MEMTESTER_BIN" ]; then
-    MT_EXIT="N/A"
-    fail "memtester não encontrado — embarque o binário na imagem em /system/bin/memtester ou /vendor/bin/memtester"
-    log "  Pulando teste de RAM por falta do memtester."
-else
-    log_debug "Executando em background: $MEMTESTER_BIN ${MEMTEST_MB}M ${MEMTEST_LOOPS}"
-    "$MEMTESTER_BIN" "${MEMTEST_MB}M" "$MEMTEST_LOOPS" > memtester.log 2>&1 &
-    MEMTESTER_PID=$!
-    MT_EXIT=""
-    MT_START=$(date +%s)
-    log_debug "MEMTESTER_PID=$MEMTESTER_PID, MT_START=$MT_START"
-
-    while kill -0 "$MEMTESTER_PID" 2>/dev/null; do
-        MT_NOW=$(date +%s)
-        MT_ELAPSED=$(( MT_NOW - MT_START ))
-        log "  memtester em execução... ${MT_ELAPSED}s/${MEMTEST_TIMEOUT_S}s"
-
-        if [ "$MT_ELAPSED" -ge "$MEMTEST_TIMEOUT_S" ]; then
-            log_warn "Timeout do memtester atingido. Encerrando PID=$MEMTESTER_PID"
-            kill "$MEMTESTER_PID" 2>/dev/null
-            sleep 2
-            if kill -0 "$MEMTESTER_PID" 2>/dev/null; then
-                log_warn "memtester ainda ativo após kill normal. Enviando kill -9."
-                kill -9 "$MEMTESTER_PID" 2>/dev/null
-            fi
-            wait "$MEMTESTER_PID" 2>/dev/null
-            MT_EXIT=124
-            fail "memtester excedeu timeout de ${MEMTEST_TIMEOUT_S}s"
-            break
-        fi
-
-        sleep 10
-    done
-
-    if [ -z "$MT_EXIT" ]; then
-        wait "$MEMTESTER_PID"
-        MT_EXIT=$?
-    fi
-
-    MT_END=$(date +%s)
-    MT_DURATION=$(( MT_END - MT_START ))
-    log_debug "MT_EXIT=$MT_EXIT, MT_DURATION=${MT_DURATION}s"
-    log_file_tail "memtester output" "memtester.log" 120
-
-    if [ "$MT_EXIT" != "0" ]; then
-        fail "memtester retornou exit code $MT_EXIT"
-    fi
-
-    if grep -qi "FAILURE" memtester.log 2>/dev/null; then
-        FAILED_TESTS=$(grep -i "FAILURE" memtester.log | head -5)
-        fail "memtester reportou FAILURE:\n$FAILED_TESTS"
-    fi
-
-    if [ "$MT_EXIT" = "0" ] && ! grep -qi "FAILURE" memtester.log 2>/dev/null; then
-        log "  memtester   : OK (exit $MT_EXIT, duração ${MT_DURATION}s)"
-    fi
-fi
-
-# =============================================
-# 6. ANÁLISE DO DMESG
-# =============================================
-log_section "[6] Kernel log analysis"
+log_section "[4] Kernel log analysis"
 
 log_debug "Executando dmesg > dmesg.txt"
 dmesg > dmesg.txt 2>/dev/null
@@ -895,24 +687,21 @@ else
 fi
 
 # =============================================
-# 7. RESULTADO FINAL
+# 5. RESULTADO FINAL
 # =============================================
 END_TIME=$(date +%s)
 DURATION=$(( END_TIME - START_TIME ))
 
-log_section "[7] RESULTADO FINAL"
+log_section "[5] RESULTADO FINAL"
 log "  Serial      : ${SERIAL:-N/A}"
 log "  Duração     : ${DURATION}s"
 log "  RAM total   : ${MEM_TOTAL_MB}MB"
-log "  RAM testada : ${MEMTEST_MB}MB"
 log "  Storage     : $TYPE / ${STOR_GB}GB"
 log "  Vendor      : $VENDOR"
 log "  Model       : $STOR_MODEL"
 log "  LifeTimeA   : $LIFE_A"
 log "  LifeTimeB   : $LIFE_B"
 log "  Pre-EOL     : $PRE_EOL"
-log "  Write MB/s  : ${WRITE_MBPS:-N/A}"
-log "  Read MB/s   : ${READ_MBPS:-N/A}"
 log "  Log file    : $LOGFILE"
 if [ "$RESULT" = "FAIL" ]; then
     log "  Falhas:"
@@ -943,16 +732,7 @@ log_debug "Gerando result.txt"
     echo "PRE_EOL_SOURCE=$PRE_EOL_SOURCE"
     echo "RAM_MB=$MEM_TOTAL_MB"
     echo "RAM_AVAILABLE_MB=$MEM_AVAIL_MB"
-    echo "RAM_TESTED_MB=$MEMTEST_MB"
     echo "LPDDR_TYPE=$LPDDR_TYPE"
-    echo "WRITE_MBPS=${WRITE_MBPS:-N/A}"
-    echo "READ_MBPS=${READ_MBPS:-N/A}"
-    echo "WRITE_MS=${WRITE_MS:-N/A}"
-    echo "READ_MS=${READ_MS:-N/A}"
-    echo "DD_WRITE_EXIT=${DD_WRITE_EXIT:-N/A}"
-    echo "DD_READ_EXIT=${DD_READ_EXIT:-N/A}"
-    echo "MEMTESTER_BIN=${MEMTESTER_BIN:-N/A}"
-    echo "MEMTESTER_EXIT=${MT_EXIT:-N/A}"
 } > result.txt
 
 log_debug "result.txt gerado em $WORKDIR/result.txt"

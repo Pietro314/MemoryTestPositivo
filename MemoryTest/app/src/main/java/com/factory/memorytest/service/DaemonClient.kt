@@ -91,11 +91,20 @@ class DaemonClient(
             }
             ScriptType.DEEP_RAM -> {
                 base += listOf(
+                    // Memtester deep (fase [6])
                     "MEMTEST_PERCENT"   to p.deepMemtestPercent.toString(),
                     "MEMTEST_MAX_MB"    to p.deepMemtestMaxMb.toString(),
                     "MEMTEST_LOOPS"     to p.deepMemtestLoops.toString(),
                     "MEMTEST_TIMEOUT_S" to p.deepMemtestTimeoutS.toString(),
                     "MIN_MEMTEST_MB"    to p.deepMemtestMinMb.toString(),
+                    // Memtester quick (fase [5] — gate antes do deep)
+                    "QUICK_MEMTEST_PERCENT"   to p.quickMemtestPercent.toString(),
+                    "QUICK_MEMTEST_MAX_MB"    to p.quickMemtestMaxMb.toString(),
+                    "QUICK_MEMTEST_MIN_MB"    to p.quickMemtestMinMb.toString(),
+                    "QUICK_MEMTEST_LOOPS"     to p.quickMemtestLoops.toString(),
+                    "QUICK_MEMTEST_TIMEOUT_S" to p.quickMemtestTimeoutS.toString(),
+                    // MIN_WRITE_MBPS, MIN_READ_MBPS e STORAGE_TEST_SIZE_MB ja
+                    // vao via `base` (linhas 76-78) — usados pela fase [4].
                 )
             }
         }

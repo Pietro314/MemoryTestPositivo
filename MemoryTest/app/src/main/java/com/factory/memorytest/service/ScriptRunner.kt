@@ -94,11 +94,22 @@ class ScriptRunner(private val context: Context) {
                 base["QUICK_MEMTEST_TIMEOUT_S"] = p.quickMemtestTimeoutS.toString()
             }
             ScriptType.DEEP_RAM -> {
+                // Memtester deep (fase [6])
                 base["MEMTEST_PERCENT"]   = p.deepMemtestPercent.toString()
                 base["MEMTEST_MAX_MB"]    = p.deepMemtestMaxMb.toString()
                 base["MEMTEST_LOOPS"]     = p.deepMemtestLoops.toString()
                 base["MEMTEST_TIMEOUT_S"] = p.deepMemtestTimeoutS.toString()
                 base["MIN_MEMTEST_MB"]    = p.deepMemtestMinMb.toString()
+                // Memtester quick (fase [5] — gate antes do deep)
+                base["QUICK_MEMTEST_PERCENT"]   = p.quickMemtestPercent.toString()
+                base["QUICK_MEMTEST_MAX_MB"]    = p.quickMemtestMaxMb.toString()
+                base["QUICK_MEMTEST_MIN_MB"]    = p.quickMemtestMinMb.toString()
+                base["QUICK_MEMTEST_LOOPS"]     = p.quickMemtestLoops.toString()
+                base["QUICK_MEMTEST_TIMEOUT_S"] = p.quickMemtestTimeoutS.toString()
+                // Storage test (fase [4])
+                base["MIN_WRITE_MBPS"]       = p.minWriteMbps.toString()
+                base["MIN_READ_MBPS"]        = p.minReadMbps.toString()
+                base["STORAGE_TEST_SIZE_MB"] = p.storageTestSizeMb.toString()
             }
         }
         return base
