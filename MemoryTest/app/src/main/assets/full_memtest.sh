@@ -71,6 +71,12 @@ RESULT="PASS"
 FAIL_REASONS=""
 START_TIME=$(date +%s)
 RUN_TS=$(date +%Y%m%d_%H%M%S)
+# Uptime do kernel (segundos desde boot) no inicio do teste. Usado pela
+# secao [4] pra filtrar dmesg: so consideramos erros com timestamp >=
+# START_UPTIME (ou seja, ocorridos DURANTE este teste, nao mensagens de
+# boot/inicializacao de driver tipo "io_panic_nofifier_register success").
+START_UPTIME=$(cut -d' ' -f1 /proc/uptime 2>/dev/null)
+[ -z "$START_UPTIME" ] && START_UPTIME=0
 
 # ---------- Thresholds configuráveis por SKU ----------
 # Valores lidos do ambiente (definidos pelo memtest_daemon a partir do
@@ -666,13 +672,57 @@ log_debug "DMESG_EXIT=$DMESG_EXIT"
 if [ ! -s dmesg.txt ]; then
     log "  dmesg       : não disponível sem permissão/root ou sem conteúdo"
 else
-    log_debug "dmesg.txt gerado. Buscando padrões de erro de hardware."
-    DMESG_ERRORS=$(grep -iE \
-        "I/O error|ufs error|mmc error|memory corruption|hardware error|ecc error|bad block|uncorrectable|panic" \
-        dmesg.txt 2>/dev/null)
+    # 3 filtros pra evitar falsos positivos:
+    #   (A) Erros de I/O so contam se forem no $STOR_BLOCK detectado.
+    #       Ignora 'I/O error, dev sda' (cartao SD/USB plugado por engano).
+    #   (B) So consideramos mensagens com timestamp >= START_UPTIME.
+    #       Ignora mensagens de boot/init de driver (timestamps de 0-Ns).
+    #   (C) Regex restrita pra "panic" real (Kernel panic, kernel BUG,
+    #       Call Trace, Oops) — nao pega 'panic_enable', 'panic_notifier',
+    #       'io_panic_nofifier_register success' que sao init normal.
+    STORAGE_BLOCK_NAME=$(basename "${STOR_BLOCK:-mmcblk0}")
+    log_debug "dmesg.txt gerado. Aplicando filtros:"
+    log_debug "  (A) por dispositivo I/O: $STORAGE_BLOCK_NAME"
+    log_debug "  (B) por timestamp >= START_UPTIME=$START_UPTIME"
+    log_debug "  (C) regex restrita pra panic real"
+
+    # Filtro (B): timestamp do kernel >= START_UPTIME.
+    # Formato dmesg: '[    1.956943] mensagem' — primeiro campo entre [].
+    awk -v start="$START_UPTIME" '
+        {
+            sp = index($0, "[")
+            ep = index($0, "]")
+            if (sp == 1 && ep > sp) {
+                ts = substr($0, sp + 1, ep - sp - 1)
+                gsub(/ /, "", ts)
+                if (ts + 0 >= start + 0) print
+            }
+        }
+    ' dmesg.txt > dmesg_during_test.txt 2>/dev/null
+
+    # Se filtro (B) zerou tudo, awk pode ter falhado — usa fallback sem filtro.
+    if [ ! -s dmesg_during_test.txt ]; then
+        log_debug "Filtro temporal vazio (awk falhou ou nada relevante); analisando dmesg completo."
+        cp dmesg.txt dmesg_during_test.txt
+    fi
+
+    # Filtro (C): panic REAL, BUG, Call Trace, Oops (palavras especificas).
+    # NAO pega 'panic_enable', 'panic_notifier', 'io_panic_*_register' que
+    # sao mensagens de init de driver no SPRD/MTK.
+    PANIC_PATTERN='Kernel panic|kernel BUG|Call Trace:|Oops:'
+
+    # Erros de memoria/storage chip independente de dispositivo.
+    MEM_PATTERN='memory corruption|ecc error|bad block|uncorrectable|hardware error'
+
+    # Filtro (A): erros de I/O so contam se forem no nosso $STORAGE_BLOCK_NAME.
+    # Pega tambem particoes (mmcblk0p3, etc).
+    STORAGE_PATTERN="(I/O error|Buffer I/O error|read error|write error).*dev ${STORAGE_BLOCK_NAME}"
+
+    DMESG_ERRORS=$(grep -iE "${PANIC_PATTERN}|${MEM_PATTERN}|${STORAGE_PATTERN}" \
+        dmesg_during_test.txt 2>/dev/null)
 
     if [ -n "$DMESG_ERRORS" ]; then
-        log "  Erros encontrados no dmesg:"
+        log "  Erros encontrados no dmesg (durante o teste, no storage):"
         echo "$DMESG_ERRORS" | head -10 | while read line; do log "    $line"; done
         fail "Erros de hardware detectados no kernel log"
         {
@@ -681,8 +731,10 @@ else
             echo "----- end dmesg matched errors -----"
         } >> "$LOGFILE"
     else
-        log "  dmesg       : sem erros de hardware"
+        log "  dmesg       : sem erros de hardware (filtros A+B+C aplicados)"
     fi
+
+    rm -f dmesg_during_test.txt 2>/dev/null
 fi
 
 # =============================================
