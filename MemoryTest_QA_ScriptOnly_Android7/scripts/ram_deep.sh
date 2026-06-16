@@ -66,6 +66,10 @@ else
 fi
 
 
+# Identificacao da versao do script. Incrementar a cada mudanca pra
+# confirmar nos logs qual versao o QA esta rodando.
+SCRIPT_VERSION="1.0.2"
+
 WORKDIR="/data/local/tmp/memtest_work"
 RESULT="PASS"
 FAIL_REASONS=""
@@ -185,6 +189,7 @@ trap cleanup EXIT INT TERM
 
 log "============================================="
 log "  RAM DIAGNOSTIC DEEP - $(date)"
+log "  SCRIPT VERSION: $SCRIPT_VERSION (Android 7 / mt6739)"
 log "============================================="
 log "  Log file    : $LOGFILE"
 log "  Workdir     : $WORKDIR"
@@ -331,18 +336,21 @@ else
     [ "$COUNT" -lt 1 ] && COUNT=1
 
     log "  Escrevendo ${STORAGE_TEST_SIZE_MB}MB com dados aleatórios..."
-    log_debug "Comando: dd if=/dev/urandom of=testfile bs=4M count=$COUNT conv=fsync"
+    log_debug "Comando: dd if=/dev/urandom of=testfile bs=4194304 count=$COUNT conv=fsync"
     T1=$(date +%s%3N 2>/dev/null)
-    if [ -z "$T1" ]; then T1=$(( $(date +%s) * 1000 )); fi
+    # Toybox antigo (Android 7) nao suporta %N e imprime "N" literal em vez de
+    # falhar. Validamos que T1 e' puramente numerico; se nao, usa fallback de
+    # segundos*1000 (precisao de 1s em vez de 1ms — aceitavel pra storage test).
+    case "$T1" in ''|*[!0-9]*) T1=$(( $(date +%s) * 1000 )) ;; esac
     log_debug "T1=$T1"
 
-    dd if=/dev/urandom of=testfile bs=4M count="$COUNT" conv=fsync 2>write_speed.txt
+    dd if=/dev/urandom of=testfile bs=4194304 count="$COUNT" conv=fsync 2>write_speed.txt
     DD_WRITE_EXIT=$?
     log_debug "DD_WRITE_EXIT=$DD_WRITE_EXIT"
     log_file_tail "dd write output" "write_speed.txt" 20
 
     T2=$(date +%s%3N 2>/dev/null)
-    if [ -z "$T2" ]; then T2=$(( $(date +%s) * 1000 )); fi
+    case "$T2" in ''|*[!0-9]*) T2=$(( $(date +%s) * 1000 )) ;; esac
     log_debug "T2=$T2"
 
     WRITE_MS=$(( T2 - T1 ))
@@ -366,18 +374,18 @@ else
     log_debug "drop_caches exit=$DROP_EXIT"
 
     log "  Lendo ${STORAGE_TEST_SIZE_MB}MB de volta..."
-    log_debug "Comando: dd if=testfile of=/dev/null bs=4M"
+    log_debug "Comando: dd if=testfile of=/dev/null bs=4194304"
     T3=$(date +%s%3N 2>/dev/null)
-    if [ -z "$T3" ]; then T3=$(( $(date +%s) * 1000 )); fi
+    case "$T3" in ''|*[!0-9]*) T3=$(( $(date +%s) * 1000 )) ;; esac
     log_debug "T3=$T3"
 
-    dd if=testfile of=/dev/null bs=4M 2>read_speed.txt
+    dd if=testfile of=/dev/null bs=4194304 2>read_speed.txt
     DD_READ_EXIT=$?
     log_debug "DD_READ_EXIT=$DD_READ_EXIT"
     log_file_tail "dd read output" "read_speed.txt" 20
 
     T4=$(date +%s%3N 2>/dev/null)
-    if [ -z "$T4" ]; then T4=$(( $(date +%s) * 1000 )); fi
+    case "$T4" in ''|*[!0-9]*) T4=$(( $(date +%s) * 1000 )) ;; esac
     log_debug "T4=$T4"
 
     READ_MS=$(( T4 - T3 ))

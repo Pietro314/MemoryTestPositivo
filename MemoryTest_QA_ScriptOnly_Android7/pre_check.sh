@@ -19,6 +19,10 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Identificacao da versao do script. Incrementar a cada mudanca pra
+# confirmar nos logs qual versao o QA esta rodando.
+SCRIPT_VERSION="1.0.2"
+
 # Git Bash (Windows): nao converter paths Unix automaticamente
 export MSYS_NO_PATHCONV=1
 export MSYS2_ARG_CONV_EXCL='*'
@@ -81,6 +85,7 @@ PARTIALS=0       # warnings de cobertura reduzida
 # ============================================================
 echo "============================================================"
 echo "  MemoryTest Pre-Check Report"
+echo "  SCRIPT VERSION: $SCRIPT_VERSION (Android 7 / mt6739)"
 echo "  Gerado: $(date '+%Y-%m-%d %H:%M:%S')"
 echo "  Arquivo: $REPORT_FILE"
 echo "============================================================"
@@ -273,6 +278,23 @@ read_path_value() {
     adb shell "cat '$1' 2>/dev/null" 2>/dev/null | tr -d '\r'
 }
 
+# Le um byte especifico do ext_csd via debugfs.
+# Argumento: offset do byte em decimal (267, 268, 269 etc).
+# Retorna: byte em formato "0xXX" ou string vazia se nao disponivel.
+# O ext_csd tem 512 bytes (1024 chars hex em uma linha). Cada byte = 2 chars.
+# Path: /sys/kernel/debug/mmc0/mmc0:.../ext_csd (precisa root pra ler).
+# Pre_check roda no PC, entao o cat traz a string pelo adb e o tr roda no host.
+read_ext_csd_byte() {
+    local offset="$1"
+    local char_pos=$((offset * 2))
+    local hex
+    hex=$(adb shell "su 0 sh -c 'cat /sys/kernel/debug/mmc0/mmc0:*/ext_csd 2>/dev/null'" 2>/dev/null | tr -d ' \n\r\t')
+    local len=${#hex}
+    if [ "$len" -ge "$((char_pos + 2))" ]; then
+        echo "0x${hex:$char_pos:2}"
+    fi
+}
+
 # --- life_time ---
 # Ordem (igual full_memtest.sh): eMMC arquivo unico, UFS estimation_a/b, MTK /proc/bootdevice
 LIFE_PATH=$(probe_first_path \
@@ -307,8 +329,15 @@ else
             MTK_VAL=$(read_path_value "$MTK_LIFE_PATH")
             print_check "$SYM_OK" "life_time (MTK /proc/bootdevice)" "valor=${MTK_VAL:-vazio} ($MTK_LIFE_PATH)"
         else
-            print_check "$SYM_FAIL" "life_time" "kernel nao expoe em nenhum path conhecido"
-            PARTIALS=$((PARTIALS+1))
+            # Ultimo fallback: ext_csd via debugfs (bytes 268 e 269)
+            LIFE_A_EXT=$(read_ext_csd_byte 268)
+            LIFE_B_EXT=$(read_ext_csd_byte 269)
+            if [ -n "$LIFE_A_EXT" ] && [ -n "$LIFE_B_EXT" ]; then
+                print_check "$SYM_OK" "life_time (ext_csd debugfs)" "A=$LIFE_A_EXT B=$LIFE_B_EXT (bytes 268-269)"
+            else
+                print_check "$SYM_FAIL" "life_time" "kernel nao expoe em nenhum path conhecido"
+                PARTIALS=$((PARTIALS+1))
+            fi
         fi
     fi
 fi
@@ -336,8 +365,14 @@ if [ -n "$PRE_EOL_PATH" ]; then
         PARTIALS=$((PARTIALS+1))
     fi
 else
-    print_check "$SYM_FAIL" "pre_eol_info" "kernel nao expoe em nenhum path conhecido"
-    PARTIALS=$((PARTIALS+1))
+    # Ultimo fallback: ext_csd via debugfs (byte 267)
+    PRE_EOL_EXT=$(read_ext_csd_byte 267)
+    if [ -n "$PRE_EOL_EXT" ]; then
+        print_check "$SYM_OK" "pre_eol_info (ext_csd debugfs)" "valor=$PRE_EOL_EXT (byte 267)"
+    else
+        print_check "$SYM_FAIL" "pre_eol_info" "kernel nao expoe em nenhum path conhecido"
+        PARTIALS=$((PARTIALS+1))
+    fi
 fi
 
 # --- CID (eMMC) ou product_name+manufacturer (UFS) ---

@@ -66,6 +66,10 @@ fi
 #  - Logs detalhados de caminhos encontrados, valores lidos, decisões e resultados
 # ==============================================================
 
+# Identificacao da versao do script. Incrementar a cada mudanca pra
+# confirmar nos logs qual versao o QA esta rodando.
+SCRIPT_VERSION="1.0.2"
+
 WORKDIR="/data/local/tmp/memtest_work"
 RESULT="PASS"
 FAIL_REASONS=""
@@ -175,15 +179,18 @@ fail() {
 to_dec() {
     local v="$1"
 
+    # printf "%d" "$v" e' bugado no mksh do Android 7 (retorna 12884901988
+    # pra "0x01" em vez de 1). Usar arithmetic expansion $((v)) que parseia
+    # hex/decimal nativamente em qualquer Korn shell e bash.
     case "$v" in
         ""|"N/A")
             echo ""
             ;;
-        0x*|0X*)
-            printf "%d" "$v" 2>/dev/null
+        0x*|0X*|[0-9]*)
+            echo "$(( v ))" 2>/dev/null
             ;;
         *)
-            printf "%d" "$v" 2>/dev/null
+            echo ""
             ;;
     esac
 }
@@ -239,6 +246,7 @@ find_first_file() {
 
 log "============================================="
 log "  FACTORY MEMORY TEST - $(date)"
+log "  SCRIPT VERSION: $SCRIPT_VERSION (Android 7 / mt6739)"
 log "============================================="
 log "  Log file    : $LOGFILE"
 log "  Workdir     : $WORKDIR"
@@ -534,6 +542,57 @@ if [ "$TYPE" = "UNKNOWN" ]; then
             fi
         fi
 
+        # Fallback final: ext_csd via debugfs.
+        # O arquivo /sys/kernel/debug/mmc0/mmc0:.../ext_csd contem os
+        # 512 bytes do registro EXT_CSD direto do chip. Funciona quando
+        # o driver do kernel nao expoe via sysfs/procfs padrao mas tem
+        # debugfs montado (caso do mt6739/L3). Precisa root pra ler.
+        # Bytes mapeados (offset em decimal):
+        #   267 = PRE_EOL_INFO
+        #   268 = DEVICE_LIFE_TIME_EST_TYP_A
+        #   269 = DEVICE_LIFE_TIME_EST_TYP_B
+        #
+        # IMPORTANTE: condicoes testam tanto "" quanto "N/A" porque blocos
+        # anteriores ja podem ter setado LIFE_A/B como "N/A" como fallback.
+        if [ -z "$LIFE_A" ] || [ "$LIFE_A" = "N/A" ] || \
+           [ -z "$LIFE_B" ] || [ "$LIFE_B" = "N/A" ] || \
+           [ -z "$PRE_EOL" ] || [ "$PRE_EOL" = "N/A" ]; then
+            log_debug "Tentando ext_csd via debugfs (fallback final)."
+            EXT_CSD_FILE=""
+            for f in /sys/kernel/debug/mmc0/mmc0:*/ext_csd; do
+                [ -f "$f" ] && EXT_CSD_FILE="$f" && break
+            done
+
+            if [ -n "$EXT_CSD_FILE" ]; then
+                log_debug "ext_csd encontrado: $EXT_CSD_FILE"
+                EXT_CSD=$(cat "$EXT_CSD_FILE" 2>/dev/null | tr -d ' \n\r\t')
+                EXT_CSD_LEN=${#EXT_CSD}
+                log_debug "ext_csd lido: $EXT_CSD_LEN chars hex (esperado >= 540)"
+
+                if [ "$EXT_CSD_LEN" -ge 540 ] 2>/dev/null; then
+                    # Cada byte = 2 chars hex. Offsets em chars: 267*2=534, 268*2=536, 269*2=538.
+                    if [ -z "$PRE_EOL" ] || [ "$PRE_EOL" = "N/A" ]; then
+                        PRE_EOL="0x${EXT_CSD:534:2}"
+                        PRE_EOL_SOURCE="$EXT_CSD_FILE (byte 267)"
+                        log_debug "PRE_EOL via ext_csd: $PRE_EOL"
+                    fi
+                    if [ -z "$LIFE_A" ] || [ "$LIFE_A" = "N/A" ]; then
+                        LIFE_A="0x${EXT_CSD:536:2}"
+                        LIFE_SOURCE="$EXT_CSD_FILE (bytes 268-269)"
+                        log_debug "LIFE_A via ext_csd: $LIFE_A"
+                    fi
+                    if [ -z "$LIFE_B" ] || [ "$LIFE_B" = "N/A" ]; then
+                        LIFE_B="0x${EXT_CSD:538:2}"
+                        log_debug "LIFE_B via ext_csd: $LIFE_B"
+                    fi
+                else
+                    log_debug "ext_csd tamanho inesperado, ignorando."
+                fi
+            else
+                log_debug "ext_csd nao encontrado em /sys/kernel/debug/mmc0/mmc0:*/ext_csd"
+            fi
+        fi
+
         [ -z "$LIFE_A" ] && LIFE_A="N/A"
         [ -z "$LIFE_B" ] && LIFE_B="N/A"
         [ -z "$PRE_EOL" ] && PRE_EOL="N/A"
@@ -564,13 +623,19 @@ if [ -n "$STOR_BLOCK" ] && [ -e "$STOR_BLOCK" ]; then
     # Comparacao string (nao numerica): chips >= 4GB tem STOR_BYTES > 2^31 e
     # estouram int32 do mksh, fazendo `[ ... -gt 0 ]` falhar silenciosamente.
     if [ -n "$STOR_BYTES" ] && [ "$STOR_BYTES" != "0" ]; then
-        # Awk-free + sem overflow no mksh 32-bit em chips >= 4GB.
-        # Tecnica: corta os 3 ultimos digitos via parameter expansion
-        # (bytes -> ~KB, off por 2.4%), aí int32 cabe, dai /1024/1024 = GB.
+        # Calculo de capacidade em GB **decimal arredondado** (alinha com
+        # spec comercial e Android Settings). Tecnica:
+        #   1) Corta ultimos 8 digitos do byte count via parameter expansion
+        #      → resulta no num de "centenas de M" (cabe em int32 do mksh).
+        #   2) Aplica round half-up: (centenas_M + 5) / 10 = GB arredondado.
+        # Exemplos:
+        #   7818182656 (chip "8GB") → "78"  → (78+5)/10 = 8
+        #   4294967296 (chip "4GB") → "42"  → (42+5)/10 = 4
+        #   32000000000 (chip 32GB) → "320" → (320+5)/10 = 32
         blen=${#STOR_BYTES}
-        if [ "$blen" -gt 4 ]; then
-            kb_approx=${STOR_BYTES%???}
-            STOR_GB=$(( kb_approx / 1024 / 1024 ))
+        if [ "$blen" -gt 8 ]; then
+            hundreds_M=${STOR_BYTES%????????}
+            STOR_GB=$(( (hundreds_M + 5) / 10 ))
         else
             STOR_GB=0
         fi
